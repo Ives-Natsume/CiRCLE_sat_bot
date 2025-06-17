@@ -1,0 +1,251 @@
+[AISAT-1]
+aliases = ["aisat1"]
+
+[AO-123]
+aliases = ["AO123", "ao123", "asrtu"]
+
+[AO-27]
+aliases = ["AO27", "ao27"]
+
+["AO-7[A]"]
+aliases = ["AO7A", "ao7a"]
+
+["AO-7[B]"]
+aliases = ["AO7B", "ao7b"]
+
+[AO-73]
+aliases = ["AO73", "ao73"]
+
+[AO-85]
+aliases = ["AO85", "ao85"]
+
+[AO-91]
+aliases = ["AO91", "ao91"]
+
+[CAS-2T]
+aliases = ["CAS2T", "cas2t"]
+
+[CAS-4A]
+aliases = ["CAS4A", "cas4a"]
+
+[CAS-4B]
+aliases = ["CAS4B", "cas4b"]
+
+[CatSat]
+aliases = ["catsat", "catsat1"]
+
+[CUTE-1]
+aliases = ["cute1"]
+
+[DSTAR1]
+aliases = ["dstar1"]
+
+[DUCHIFAT1]
+aliases = ["duchifat1", "duchifat"]
+
+[DUCHIFAT3]
+aliases = ["duchifat3", "duchifat3a"]
+
+[EO-79]
+aliases = ["eo79", "EO79"]
+
+[EO-80]
+aliases = ["eo80", "EO80"]
+
+[ESEO]
+aliases = ["eseo"]
+
+[FloripaSat-1]
+aliases = ["floripasat1", "floripasat"]
+
+["FO-118[H/u]"]
+aliases = ["fo118h", "fo118hu", "fo118"]
+
+["FO-118[V/u FM]"]
+aliases = ["fo118fm", "fo118vu", "fo118"]
+
+["FO-118[V/u]"]
+aliases = ["fo118vu", "fo118"]
+
+[FO-29]
+aliases = ["fo29", "FO29"]
+
+[FO-99]
+aliases = ["fo99", "FO99"]
+
+[GO-32]
+aliases = ["go32", "GO32"]
+
+[HA-1]
+aliases = ["ha1", "HA1"]
+
+[HO-107]
+aliases = ["ho107", "HO107"]
+
+[HO-113]
+aliases = ["ho113", "HO113"]
+
+[HO-68]
+aliases = ["ho68", "HO68"]
+
+[IO-117]
+aliases = ["io117", "IO117"]
+
+[IO-26]
+aliases = ["io26", "IO26"]
+
+[IO-86]
+aliases = ["io86", "IO86"]
+
+[ISS-FM]
+aliases = ["issfm", "ISSFM", "iss voice", "iss-fm", "iss fm", "iss", "ariss", "ariss fm", "ariss voice"]
+
+[ISS-DATA]
+aliases = ["issdata", "iss packet", "iss aprs",  "iss-data", "iss data", "iss", "ariss", "ariss data", "ariss packet", "ariss aprs"]
+
+[ISS-DATV]
+aliases = ["issdatv", "iss datv", "iss-datv", "iss datv video", "iss datv audio", "iss video", "iss audio", "ariss datv", "ariss video", "ariss audio", "iss", "ariss"]
+
+[JO-97]
+aliases = ["jo97", "JO97"]
+
+[K2SAT]
+aliases = ["k2sat", "K2SAT"]
+
+[LEDSAT]
+aliases = ["ledsat", "LEDSAT"]
+
+[LilacSat-2]
+aliases = ["lilacsat2", "lilacsat"]
+
+[LO-19]
+aliases = ["lo19", "LO19"]
+
+[LO-87]
+aliases = ["lo87", "LO87"]
+
+[LO-90]
+aliases = ["lo90", "LO90"]
+
+[LO-93]
+aliases = ["lo93", "LO93"]
+
+[MO-122]
+aliases = ["mo122", "MO122"]
+
+[NO-44]
+aliases = ["no44", "NO44"]
+
+[NO-45]
+aliases = ["no45", "NO45"]
+
+[OUFTI-1]
+aliases = ["oufti1", "oufti"]
+
+[PicSat]
+aliases = ["picsat", "picsat1"]
+
+["PO-101[APRS]"]
+aliases = ["po101aprs", "po101", "PO101APRS", "PO101"]
+
+["PO-101[FM]"]
+aliases = ["po101fm", "po101", "PO101FM", "PO101"]
+
+[QIKCOM-1]
+aliases = ["qikcom1", "qikcom"]
+
+[QO-100_NB]
+aliases = ["qo100nb", "qo100", "qosat", "qosat nb", "qosat narrowband", "qosat narrow band"]
+
+[QO-100_WB]
+aliases = ["qo100wb", "qo100", "qosat", "qosat wb", "qosat wideband", "qosat wide band"]
+
+[QUAKESAT]
+aliases = ["quakesat", "quakesat1"]
+
+[RS-15]
+aliases = ["rs15", "RS15"]
+
+[RS-25]
+aliases = ["rs25", "RS25"]
+
+[RS-44]
+aliases = ["rs44", "RS44"]
+
+[SO-124]
+aliases = ["so124", "SO124", "HADES-R", "hadesr"]
+
+[SO-125]
+aliases = ["so125", "SO125", "HADES-ICM", "hadesicm", "icm"]
+
+[SO-50]
+aliases = ["so50", "SO50"]
+
+[SO-33]
+aliases = ["so33", "SO33"]
+
+["SONATE-2 APRS"]
+aliases = ["sonate2aprs", "sonate2", "SONATE2APRS", "SONATE2"]
+
+["SONATE-2 SSTV"]
+aliases = ["sonate2sstv", "sonate2", "SONATE2SSTV", "SONATE2"]
+
+[Taurus-1]
+aliases = ["taurus1", "taurus"]
+
+[TEVEL2-1]
+aliases = ["tevel21", "tevel2"]
+
+[TEVEL2-2]
+aliases = ["tevel22", "tevel2"]
+
+[TEVEL2-3]
+aliases = ["tevel23", "tevel2"]
+
+[TEVEL2-4]
+aliases = ["tevel24", "tevel2"]
+
+[TEVEL2-5]
+aliases = ["tevel25", "tevel2"]
+
+[TEVEL2-6]
+aliases = ["tevel26", "tevel2"]
+
+[TEVEL2-7]
+aliases = ["tevel27", "tevel2"]
+
+[TEVEL2-8]
+aliases = ["tevel28", "tevel2"]
+
+[TEVEL2-9]
+aliases = ["tevel29", "tevel2"]
+
+[TO-108]
+aliases = ["to108", "TO108"]
+
+[UiTMSAT-1]
+aliases = ["uitmsat1", "uitmsat"]
+
+[UKube-1]
+aliases = ["ukube1", "ukube"]
+
+["UO-11[B]"]
+aliases = ["uo11b", "UO11B", "UO-11B", "uo-11 mode B", "uo-11b", "uo11 mode b", "uo11"]
+
+["UO-11[S]"]
+aliases = ["uo11s", "UO11S", "UO-11S", "uo-11 mode S", "uo-11s", "uo11 mode s", "uo11"]
+
+[UVSQ-SAT]
+aliases = ["uvsq-sat", "uvsq", "uvsq1"]
+
+[UWE-3]
+aliases = ["uwe3", "UWE3"]
+
+[VO-96]
+aliases = ["vo96", "VO96"]
+
+[XI-IV]
+aliases = ["xi4", "XI-IV", "XI4", "xi iv"]
+
+[XI-V]
+aliases = ["xi5", "XI-V", "XI5", "xi v"]

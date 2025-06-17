@@ -111,12 +111,12 @@ pub fn get_satellite_status(html: &str) -> Vec<SatelliteStatus> {
         // get the rest of the <td> elements as the status
         // extract the status colors to match with the status flags
         let status_colors: Vec<String> = tds.iter()
-            .skip(3) // skip the first <td> which is the satellite name
+            .skip(9) // skip the first <td> which is the satellite name
             .filter_map(|td| td.value().attr("bgcolor").map(|s| s.to_string()))
             .collect();
         // get the report numbers
         let report_nums: Vec<String> = tds.iter()
-            .skip(3) // skip the first <td> which is the satellite name
+            .skip(9) // skip the first <td> which is the satellite name
             .filter_map(|td| td.text().next().map(|s| s.to_string()))
             .collect();
         // map the status colors and report numbers to StatusFlag
