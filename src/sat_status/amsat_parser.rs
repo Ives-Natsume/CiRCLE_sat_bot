@@ -1,6 +1,7 @@
 use reqwest;
 use scraper::{Html, Selector};
 use serde::{Serialize, Deserialize};
+use tokio;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StatusFlag {
@@ -34,23 +35,22 @@ impl SatelliteStatus {
 }
 
 // run the amsat_module
-pub fn run_amsat_module() {
-    // download the target HTML document
-    let response = reqwest::blocking::get("https://www.amsat.org/status/");
-    // get the HTML content from the request response
-    let html_content = response.unwrap().text().unwrap();
+pub async fn run_amsat_module() -> anyhow::Result<()> {
+    let response = reqwest::get("https://www.amsat.org/status/").await?;
+    let html_content = response.text().await?;
 
     // parse the HTML content to extract satellite status
     let satellite_status = get_satellite_status(&html_content);
 
-    // save the satellite status to a json file
+    // save files
     let json_content = serde_json::to_string_pretty(&satellite_status).expect("Unable to serialize satellite status to JSON");
-    std::fs::write("amsat_status.json", json_content).expect("Unable to write file");
-    println!("Satellite status saved to amsat_status.json");
+    tokio::fs::write("amsat_status.json", json_content).await?;
+    tokio::fs::write("amsat_status.html", html_content).await?;
 
-    // save the HTML content to a file
-    std::fs::write("amsat_status.html", html_content).expect("Unable to write file");
-    println!("HTML content saved to amsat_status.html");
+    tracing::info!("Satellite status saved to amsat_status.json");
+    tracing::info!("HTML content saved to amsat_status.html");
+
+    Ok(())
 }
 
 // Get all Satellite name
