@@ -1,2 +1,2 @@
-pub mod manager;
+pub mod query_handler;
 pub mod scheduled_tasks;

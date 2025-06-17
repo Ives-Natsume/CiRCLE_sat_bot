@@ -108,15 +108,21 @@ pub fn get_satellite_status(html: &str) -> Vec<SatelliteStatus> {
             // skip if the first <td> is not a satellite name
             continue;
         }
+
+        // The AMSAT page devides a day to 12 time blocks,
+        // each block is 2 hours long, and blocks on the future are not shown.
+        // so we should calculate the valid time blocks to skip not shown blocks.
+        let blocks_to_skip = calculate_valid_time_blocks();
+
         // get the rest of the <td> elements as the status
         // extract the status colors to match with the status flags
         let status_colors: Vec<String> = tds.iter()
-            .skip(9) // skip the first <td> which is the satellite name
+            .skip(blocks_to_skip) // skip the first <td> which is the satellite name
             .filter_map(|td| td.value().attr("bgcolor").map(|s| s.to_string()))
             .collect();
         // get the report numbers
         let report_nums: Vec<String> = tds.iter()
-            .skip(9) // skip the first <td> which is the satellite name
+            .skip(blocks_to_skip) // skip the first <td> which is the satellite name
             .filter_map(|td| td.text().next().map(|s| s.to_string()))
             .collect();
         // map the status colors and report numbers to StatusFlag
@@ -141,4 +147,20 @@ pub fn get_satellite_status(html: &str) -> Vec<SatelliteStatus> {
 
     // return the groups
     groups
+}
+
+/// Calculate the valid time blocks to skip not shown blocks.
+/// All time need to be UTC time
+pub fn calculate_valid_time_blocks() -> usize {
+    use chrono::{Utc, Timelike};
+    let now = Utc::now();
+    let current_hour = now.hour();
+
+    let valid_blocks = if current_hour < 2 {
+        1
+    } else {
+        (current_hour / 2) as usize
+    };
+
+    12 - valid_blocks
 }

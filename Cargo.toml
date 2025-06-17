@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.98"
+chrono = "0.4.41"
 full = "0.3.0"
 reqwest = { version = "0.12.20", features = ["blocking"] }
 scraper = "0.23.1"

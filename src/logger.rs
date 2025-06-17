@@ -3,6 +3,7 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_appender::non_blocking::{NonBlocking, WorkerGuard};
 
+#[allow(dead_code)]
 pub struct LoggerGuard(WorkerGuard);
 
 pub fn init_logging(log_dir: impl AsRef<Path>, prefix: &str) -> LoggerGuard {
