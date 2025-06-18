@@ -2,6 +2,7 @@ mod sat_status;
 mod query;
 mod task_manager;
 mod logger;
+mod subscriber;
 use sat_status::amsat_parser;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -11,7 +12,12 @@ async fn main() -> anyhow::Result<()> {
     let _logger = logger::init_logging("logs", "CiRCLE_sat_bot");
     tracing::info!("Logging system initialized");
 
+
+    let status_table: Vec<(String, SatelliteStatus)> = Vec::new();
     sat_status::amsat_parser::run_amsat_module().await?;
+
+    // start the scheduled task for AMSAT module updates
+    task_manager::scheduled_tasks::start_scheduled_amsat_module(status_table);
 
     let json_file_path = "amsat_status.json";
     let toml_file_path = "satellites.toml";
@@ -25,47 +31,12 @@ async fn main() -> anyhow::Result<()> {
 
     run_console_listener(Arc::clone(&client)).await?;
 
-    // {
-    //     // initializing the query handler
-    //     let json_file_path = "amsat_status.json";
-    //     let toml_file_path = "satellites.toml";
-    //     let (query_client, query_handler) = task_manager::query_handler::init_query_system(
-    //         json_file_path.to_string(),
-    //         toml_file_path.to_string(),
-    //     );
-
-    //     // Start the query handler in a separate task
-    //     let _query_handler_task = tokio::spawn(query_handler.run());
-
-    //     // Shared query client for sending requests
-    //     let client = Arc::new(RwLock::new(query_client));
-
-    //     // Send a sample query request
-    //     {
-    //         let client_guard = client
-    //             .read()
-    //             .await;
-    //         let result = client_guard.query(
-    //             "ao123".to_string(),
-    //         ).await;
-
-    //         // Print the result if possible
-    //         match result {
-    //             Some(list) => {
-    //                 for item in list {
-    //                     println!("{}", item);
-    //                 }
-                    
-    //             }
-    //             None => println!("No results found for the query."),
-    //         }
-    //     }
-    // }
-
     Ok(())
 }
 
 use tokio::io::{AsyncBufReadExt, BufReader as TokioBufReader};
+
+use crate::sat_status::amsat_parser::SatelliteStatus;
 async fn run_console_listener(client: Arc<RwLock<task_manager::query_handler::QueryClient>>) -> anyhow::Result<()> {
     let stdin = tokio::io::stdin();
     let mut reader = TokioBufReader::new(stdin).lines();

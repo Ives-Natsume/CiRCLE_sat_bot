@@ -22,7 +22,7 @@ impl StatusFlag {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SatelliteStatus {
     pub name: String,
     pub status: Vec<Vec<StatusFlag>>,
@@ -35,12 +35,17 @@ impl SatelliteStatus {
 }
 
 // run the amsat_module
-pub async fn run_amsat_module() -> anyhow::Result<()> {
+pub async fn run_amsat_module(
+    sat_status: &mut Vec<(String, SatelliteStatus)>
+) -> anyhow::Result<()> {
     let response = reqwest::get("https://www.amsat.org/status/").await?;
     let html_content = response.text().await?;
 
     // parse the HTML content to extract satellite status
     let satellite_status = get_satellite_status(&html_content);
+
+    // update satellite status
+    monitor_satellite_status(sat_status);
 
     // save files
     let json_content = serde_json::to_string_pretty(&satellite_status).expect("Unable to serialize satellite status to JSON");
@@ -58,10 +63,10 @@ pub fn get_satellite_names(html: &str) -> Vec<String> {
     let mut names = Vec::new();
     let document = Html::parse_document(&html);
 
-    // 选择器：找到 <select name="SatName"> 中的所有 <option>
+    // selector to find the <select> element with name "SatName"
     let select_selector = Selector::parse(r#"select[name="SatName"] option"#).unwrap();
 
-    // 提取所有卫星名称
+    // extract all satellite names from the <option> elements
     for option in document.select(&select_selector) {
         if let Some(value) = option.value().attr("value") {
             if !value.is_empty() {
@@ -163,4 +168,36 @@ pub fn calculate_valid_time_blocks() -> usize {
     };
 
     12 - valid_blocks
+}
+
+pub fn monitor_satellite_status(
+    sat_status: &mut Vec<(String, SatelliteStatus)>,
+) {
+    let _monitored_sats = vec![
+        "ISS-FM",
+        "AO-123",
+        "SO-50",
+        "SO-124",
+        "SO-125",
+        "PO-101[FM]",
+        "AO-91",
+        "RS-44"
+    ];
+
+    for (last_status, current_data) in sat_status {
+        // Extract latest reported status
+        let current_status = current_data.status.first().cloned().unwrap_or_default();
+        for status in &current_status {
+            if status.report_nums > 0 {
+                // Check if status has changed
+                if last_status != status.description.as_str() {
+                    tracing::info!(
+                        "Satellite {} status updated: {}",
+                        current_data.name,
+                        status.description
+                    );
+                }
+            }
+        }
+    }
 }
