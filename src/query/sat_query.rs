@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use serde::Deserialize;
+use crate::response::ApiResponse;
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
@@ -39,10 +40,12 @@ pub fn look_up_sat_status_from_json(
     json_file_path: &str,
     toml_file_path: &str,
     sat_name: &str,
-) -> Option<Vec<String>> {
+) -> ApiResponse<Vec<String>> {
     // read file to string
-    let json_data = std::fs::read_to_string(json_file_path).ok()?;
-    let json_value: serde_json::Value = serde_json::from_str(&json_data).ok()?;
+    let json_data = std::fs::read_to_string(json_file_path).ok()
+        .expect("Unable to read JSON file");
+    let json_value: serde_json::Value = serde_json::from_str(&json_data).ok()
+        .expect("Invalid JSON format");
 
     let satellites = load_satellites_from_toml(toml_file_path);
     let alias_index = build_alias_index(&satellites);
@@ -51,7 +54,7 @@ pub fn look_up_sat_status_from_json(
 
     // find all satellites in the json file that match the names in sat_name_list
     let mut found_sats = vec![];
-    for sat in json_value.as_array()? {
+    for sat in json_value.as_array().unwrap_or(&vec![]) {
         if let Some(name) = sat.get("name").and_then(|n| n.as_str()) {
             if sat_name_list.iter().any(|s| sat_name_normalize(s) == sat_name_normalize(name)) {
                 found_sats.push(format_satellite_status(sat).join("\n"));
@@ -60,9 +63,9 @@ pub fn look_up_sat_status_from_json(
     }
     
     if found_sats.is_empty() {
-        None
+        ApiResponse::error(format!("No satellites found matching the query: {}", sat_name))
     } else {
-        Some(found_sats)
+        ApiResponse::ok(found_sats)
     }
 }
 

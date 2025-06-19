@@ -3,10 +3,11 @@ use tokio::sync::{
     oneshot,
 };
 use crate::query::sat_query;
+use crate::response::ApiResponse;
 
 pub struct QueryRequest {
     pub query_value: String,
-    pub responder: oneshot::Sender<Option<Vec<String>>>,
+    pub responder: oneshot::Sender<ApiResponse<Vec<String>>>,
 }
 
 pub struct QueryHandler {
@@ -56,7 +57,7 @@ impl QueryClient {
     }
 
     /// Sends a query request and waits for the response.
-    pub async fn query(&self, query_value: String) -> Option<Vec<String>> {
+    pub async fn query(&self, query_value: String) -> ApiResponse<Vec<String>> {
         let (responder, receiver) = oneshot::channel();
         let cloned_query_value = query_value.clone();
         
@@ -68,7 +69,7 @@ impl QueryClient {
         // send the request to the handler
         if let Err(e) = self.request_sender.send(request).await {
             tracing::error!("Failed to send query request: {}", e);
-            return None;
+            return ApiResponse::error(format!("Failed to send query request: {}", e));
         }
         
         // wait for the response
@@ -79,7 +80,7 @@ impl QueryClient {
             },
             Err(_) => {
                 tracing::error!("Failed to receive query response");
-                None
+                ApiResponse::error("Failed to receive query response".to_string())
             }
         }
     }

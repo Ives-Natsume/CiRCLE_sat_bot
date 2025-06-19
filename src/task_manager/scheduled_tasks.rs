@@ -5,6 +5,9 @@ use chrono::{self, Utc, Timelike};
 pub fn start_scheduled_amsat_module() {
     tracing::info!("Starting scheduled AMSAT module");
     let _amsat_task = tokio::spawn(async move {
+        const MAX_RETRIES: u32 = 3;
+        const RETRY_DELAY: Duration = Duration::from_secs(60);
+
         loop {
             // schedule the AMSAT module to run at xx:05 every hour
             let now = Utc::now();
@@ -28,9 +31,25 @@ pub fn start_scheduled_amsat_module() {
             );
             tokio::time::sleep(sleep_duration).await;
 
-            match run_amsat_module().await {
-                Ok(_) => tracing::info!("AMSAT module updated successfully"),
-                Err(e) => tracing::error!("Failed to update AMSAT module: {}", e),
+            let mut attempt = 0;
+            loop {
+                attempt += 1;
+                
+                match run_amsat_module().await {
+                    Ok(_) => {
+                        tracing::info!("AMSAT updated successfully");
+                        break;
+                    }
+                    Err(e) => {
+                        tracing::error!("Error updating AMSAT data: {}", e);
+                        if attempt >= MAX_RETRIES {
+                            tracing::error!("AMSAT update failed after {} attempts", MAX_RETRIES);
+                            break;
+                        }
+                        tracing::warn!("Retrying in {} seconds...", RETRY_DELAY.as_secs());
+                        tokio::time::sleep(RETRY_DELAY).await;
+                    }
+                }
             }
         }
     });
