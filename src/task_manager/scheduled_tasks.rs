@@ -1,8 +1,8 @@
 use std::time::Duration;
-use crate::amsat_parser::{run_amsat_module, SatelliteStatus};
+use crate::amsat_parser::run_amsat_module;
 use chrono::{self, Utc, Timelike};
 
-pub fn start_scheduled_amsat_module(mut status_table: Vec<(String, SatelliteStatus)>) {
+pub fn start_scheduled_amsat_module() {
     tracing::info!("Starting scheduled AMSAT module");
     let _amsat_task = tokio::spawn(async move {
         loop {
@@ -28,7 +28,7 @@ pub fn start_scheduled_amsat_module(mut status_table: Vec<(String, SatelliteStat
             );
             tokio::time::sleep(sleep_duration).await;
 
-            match run_amsat_module(&mut status_table).await {
+            match run_amsat_module().await {
                 Ok(_) => tracing::info!("AMSAT module updated successfully"),
                 Err(e) => tracing::error!("Failed to update AMSAT module: {}", e),
             }

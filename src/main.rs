@@ -12,12 +12,10 @@ async fn main() -> anyhow::Result<()> {
     let _logger = logger::init_logging("logs", "CiRCLE_sat_bot");
     tracing::info!("Logging system initialized");
 
-
-    let status_table: Vec<(String, SatelliteStatus)> = Vec::new();
     sat_status::amsat_parser::run_amsat_module().await?;
 
     // start the scheduled task for AMSAT module updates
-    task_manager::scheduled_tasks::start_scheduled_amsat_module(status_table);
+    task_manager::scheduled_tasks::start_scheduled_amsat_module();
 
     let json_file_path = "amsat_status.json";
     let toml_file_path = "satellites.toml";

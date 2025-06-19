@@ -3,6 +3,17 @@ use scraper::{Html, Selector};
 use serde::{Serialize, Deserialize};
 use tokio;
 
+const AMSAT_URL: &str = "https://www.amsat.org/status/";
+const SATELLITE_STATUS_FILE: &str = "amsat_status.json";
+const AMSAT_HTML_FILE: &str = "amsat_status.html";
+const SATELLITE_STATUS_CACHE_FILE: &str = "amsat_status_cache.json";
+const BLUE_STATUS: &str = "Transponder/Repeater Active";
+const YELLOW_STATUS: &str = "Telemetry/Beacon Only";
+const RED_STATUS: &str = "No Signal";
+const ORANGE_STATUS: &str = "Conflictng Reports";
+const PURPLE_STATUS: &str = "ISS Crew(Voice) Active";
+const UNKNOWN_STATUS: &str = "Unknown Status";
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StatusFlag {
     pub report_nums: u8,
@@ -12,12 +23,12 @@ pub struct StatusFlag {
 impl StatusFlag {
     pub fn match_status_with_color(color: &str, nums: u8) -> Option<StatusFlag> {
         match color {
-            "#4169E1" => Some(StatusFlag { report_nums: nums, description: "Transponder/Repeater Active".to_string() }),
-            "yellow" => Some(StatusFlag { report_nums: nums, description: "Telemetry/Beacon Only".to_string() }),
-            "red" => Some(StatusFlag { report_nums: nums, description: "No Signal".to_string() }),
-            "orange" => Some(StatusFlag { report_nums: nums, description: "Conflictng Reports".to_string() }),
-            "#9900FF" => Some(StatusFlag { report_nums: nums, description: "ISS Crew(Voice) Active".to_string() }),
-            _ => Some(StatusFlag { report_nums: 0, description: "Unknown Status".to_string() }),
+            "#4169E1" => Some(StatusFlag { report_nums: nums, description: BLUE_STATUS.to_string() }),
+            "yellow" => Some(StatusFlag { report_nums: nums, description: YELLOW_STATUS.to_string() }),
+            "red" => Some(StatusFlag { report_nums: nums, description: RED_STATUS.to_string() }),
+            "orange" => Some(StatusFlag { report_nums: nums, description: ORANGE_STATUS.to_string() }),
+            "#9900FF" => Some(StatusFlag { report_nums: nums, description: PURPLE_STATUS.to_string() }),
+            _ => Some(StatusFlag { report_nums: 0, description: UNKNOWN_STATUS.to_string() }),
         }
     }
 }
@@ -34,26 +45,38 @@ impl SatelliteStatus {
     }
 }
 
-// run the amsat_module
-pub async fn run_amsat_module(
-    sat_status: &mut Vec<(String, SatelliteStatus)>
-) -> anyhow::Result<()> {
-    let response = reqwest::get("https://www.amsat.org/status/").await?;
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct SatelliteStatusCache {
+    name: String,
+    status: String,
+}
+
+impl SatelliteStatusCache {
+    pub fn new(name: String, status: String) -> Self {
+        SatelliteStatusCache { name, status }
+    }
+}
+
+/// Run the amsat_module, with html parser and status watchdog
+pub async fn run_amsat_module() -> anyhow::Result<()> {
+    let response = reqwest::get(AMSAT_URL).await?;
     let html_content = response.text().await?;
 
     // parse the HTML content to extract satellite status
     let satellite_status = get_satellite_status(&html_content);
 
-    // update satellite status
-    monitor_satellite_status(sat_status);
-
     // save files
     let json_content = serde_json::to_string_pretty(&satellite_status).expect("Unable to serialize satellite status to JSON");
-    tokio::fs::write("amsat_status.json", json_content).await?;
-    tokio::fs::write("amsat_status.html", html_content).await?;
+    tokio::fs::write(SATELLITE_STATUS_FILE, json_content).await?;
+    tokio::fs::write(AMSAT_HTML_FILE, html_content).await?;
 
     tracing::info!("Satellite status saved to amsat_status.json");
     tracing::info!("HTML content saved to amsat_status.html");
+
+    // update satellite status
+    monitor_satellite_status(
+        satellite_status.clone(),
+    ).await;
 
     Ok(())
 }
@@ -116,7 +139,7 @@ pub fn get_satellite_status(html: &str) -> Vec<SatelliteStatus> {
 
         // The AMSAT page devides a day to 12 time blocks,
         // each block is 2 hours long, and blocks on the future are not shown.
-        // so we should calculate the valid time blocks to skip not shown blocks.
+        // Calculate the valid time blocks to skip not shown blocks.
         let blocks_to_skip = calculate_valid_time_blocks();
 
         // get the rest of the <td> elements as the status
@@ -137,7 +160,7 @@ pub fn get_satellite_status(html: &str) -> Vec<SatelliteStatus> {
                 if let Some(flag) = StatusFlag::match_status_with_color(color, nums.parse().unwrap_or(0)) {
                     vec![flag]
                 } else {
-                    vec![StatusFlag { report_nums: 0, description: "Unknown Status".to_string() }]
+                    vec![StatusFlag { report_nums: 0, description: UNKNOWN_STATUS.to_string() }]
                 }
             })
             .collect();
@@ -170,8 +193,8 @@ pub fn calculate_valid_time_blocks() -> usize {
     12 - valid_blocks
 }
 
-pub fn monitor_satellite_status(
-    sat_status: &mut Vec<(String, SatelliteStatus)>,
+async fn monitor_satellite_status(
+    satellite_status: Vec<SatelliteStatus>,
 ) {
     let _monitored_sats = vec![
         "ISS-FM",
@@ -184,20 +207,93 @@ pub fn monitor_satellite_status(
         "RS-44"
     ];
 
-    for (last_status, current_data) in sat_status {
-        // Extract latest reported status
-        let current_status = current_data.status.first().cloned().unwrap_or_default();
-        for status in &current_status {
-            if status.report_nums > 0 {
-                // Check if status has changed
-                if last_status != status.description.as_str() {
-                    tracing::info!(
-                        "Satellite {} status updated: {}",
-                        current_data.name,
-                        status.description
-                    );
+    // Check if the satellite status cache file exists
+    if !tokio::fs::metadata(SATELLITE_STATUS_CACHE_FILE).await.is_ok() {
+        // If the file does not exist, create it
+        tokio::fs::File::create(SATELLITE_STATUS_CACHE_FILE).await.expect("Failed to create cache file");
+    }
+
+    // check if status cache is empty or not exists
+    if let Ok(cache_content) = tokio::fs::read_to_string(SATELLITE_STATUS_CACHE_FILE).await {
+        if !cache_content.is_empty() {
+            // Deserialize the cached status
+            let cached_status: Vec<SatelliteStatusCache> = serde_json::from_str(&cache_content)
+                .expect("Failed to deserialize satellite status cache");
+
+            // Analyse status changes
+            for sat in &satellite_status {
+                if let Some(cached_sat) = cached_status.iter().find(|c| c.name == sat.name) {
+                    // Check if the status has changed
+                    if let Some(latest_status) = get_latest_valid_status(sat) {
+                        if cached_sat.status != latest_status && cached_sat.status != UNKNOWN_STATUS {
+                            // Update the cache with the new status
+                            let mut updated_cache = cached_status.clone();
+                            if let Some(entry) = updated_cache.iter_mut().find(|c| c.name == sat.name) {
+                                entry.status = latest_status.clone();
+                            } else {
+                                updated_cache.push(SatelliteStatusCache::new(
+                                    sat.name.clone(),
+                                    latest_status.clone()
+                                ));
+                            }
+                            // Write the updated cache back to the file
+                            if let Ok(json_content) = serde_json::to_string_pretty(&updated_cache) {
+                                tokio::fs::write(SATELLITE_STATUS_CACHE_FILE, json_content)
+                                    .await.expect("Failed to write updated cache file");
+                            } else {
+                                tracing::error!("Failed to serialize updated satellite status cache");
+                            }
+                            tracing::info!("Status change detected for {}: {} -> {}", sat.name, cached_sat.status, latest_status);
+                        }
+                    } else {
+                        tracing::warn!("No valid status found for {}", sat.name);
+                    }
+                } else {
+                    tracing::warn!("Satellite {} not found in cache", sat.name);
                 }
+            }
+        } else {
+            let mut cache_content: Vec<SatelliteStatusCache> = Vec::new();
+            for sat in &satellite_status {
+                match get_latest_valid_status(sat) {
+                    Some(status) => {
+                        let cache_entry = SatelliteStatusCache::new(
+                            sat.name.clone(),
+                            status
+                        );
+                        cache_content.push(cache_entry);
+                    }
+                    None => {
+                        let cache_entry = SatelliteStatusCache::new(
+                            sat.name.clone(),
+                            UNKNOWN_STATUS.to_string()
+                        );
+                        cache_content.push(cache_entry);
+                    }
+                }
+            }
+            if let Ok(json_content) = serde_json::to_string_pretty(&cache_content) {
+                tokio::fs::write(SATELLITE_STATUS_CACHE_FILE, json_content).await.expect("Failed to write cache file");
+                tracing::info!("Satellite status cache file created successfully");
+            } else {
+                tracing::error!("Failed to serialize satellite status cache");
+            }
+        }
+    } else {
+        tracing::error!("Failed to read satellite status cache file");
+    }
+}
+
+fn get_latest_valid_status(
+    satellite_status: &SatelliteStatus
+) -> Option<String> {
+    // Get the latest valid status for the satellite
+    for status in &satellite_status.status {
+        if let Some(flag) = status.first() {
+            if flag.description != UNKNOWN_STATUS {
+                return Some(flag.description.clone());
             }
         }
     }
+    None
 }
