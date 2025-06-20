@@ -73,7 +73,7 @@ pub async fn run_amsat_module() -> anyhow::Result<()> {
     tracing::info!("Satellite status saved to amsat_status.json");
     tracing::info!("HTML content saved to amsat_status.html");
 
-    // update satellite status
+    // monitor satellite status
     monitor_satellite_status(
         satellite_status.clone(),
     ).await;

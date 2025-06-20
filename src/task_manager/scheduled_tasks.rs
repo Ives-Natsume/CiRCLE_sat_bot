@@ -3,7 +3,6 @@ use crate::amsat_parser::run_amsat_module;
 use chrono::{self, Utc, Timelike};
 
 pub fn start_scheduled_amsat_module() {
-    tracing::info!("Starting scheduled AMSAT module");
     let _amsat_task = tokio::spawn(async move {
         const MAX_RETRIES: u32 = 3;
         const RETRY_DELAY: Duration = Duration::from_secs(60);
@@ -26,7 +25,7 @@ pub fn start_scheduled_amsat_module() {
 
             let sleep_duration = (next_trigger - now).to_std().unwrap_or(Duration::from_secs(0));
             tracing::info!(
-                "Next AMSAT module run scheduled at: {}",
+                "Next AMSAT update scheduled at: {}",
                 next_trigger.to_rfc3339()
             );
             tokio::time::sleep(sleep_duration).await;
