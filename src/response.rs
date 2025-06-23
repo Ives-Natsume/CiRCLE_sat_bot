@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Debug, Clone)]
 pub struct ApiResponse<T> {
     pub success: bool,
     pub data: Option<T>,
@@ -21,6 +21,14 @@ impl<T> ApiResponse<T> {
             success: false,
             data: None,
             message: Some(msg.into()),
+        }
+    }
+
+    pub fn new(success: bool, data: T, message: impl Into<String>) -> Self {
+        Self {
+            success,
+            data: Some(data),
+            message: Some(message.into()),
         }
     }
 }

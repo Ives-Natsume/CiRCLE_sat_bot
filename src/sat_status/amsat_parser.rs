@@ -2,6 +2,8 @@ use reqwest;
 use scraper::{Html, Selector};
 use serde::{Serialize, Deserialize};
 use tokio;
+use crate::msg_sys;
+use crate::response::ApiResponse;
 
 const AMSAT_URL: &str = "https://www.amsat.org/status/";
 const SATELLITE_STATUS_FILE: &str = "amsat_status.json";
@@ -61,6 +63,7 @@ impl SatelliteStatusCache {
 pub async fn run_amsat_module() -> anyhow::Result<()> {
     let response = reqwest::get(AMSAT_URL).await?;
     let html_content = response.text().await?;
+    let broadcast_group_ids = vec![965954401];
 
     // parse the HTML content to extract satellite status
     let satellite_status = get_satellite_status(&html_content);
@@ -74,9 +77,16 @@ pub async fn run_amsat_module() -> anyhow::Result<()> {
     tracing::info!("HTML content saved to amsat_status.html");
 
     // monitor satellite status
-    monitor_satellite_status(
+    let api_response = monitor_satellite_status(
         satellite_status.clone(),
     ).await;
+
+    for id in broadcast_group_ids {
+        msg_sys::group_chat::send_group_msg(
+            api_response.clone(),
+            id,
+        ).await;
+    }
 
     Ok(())
 }
@@ -195,7 +205,7 @@ pub fn calculate_valid_time_blocks() -> usize {
 
 async fn monitor_satellite_status(
     satellite_status: Vec<SatelliteStatus>,
-) {
+) -> ApiResponse<Vec<String>> {
     let _monitored_sats = vec![
         "ISS-FM",
         "AO-123",
@@ -206,6 +216,9 @@ async fn monitor_satellite_status(
         "AO-91",
         "RS-44"
     ];
+    let mut data: Vec<String> = Vec::new();
+    let mut success = true;
+    let mut msg: String = String::new();
 
     // Check if the satellite status cache file exists
     if !tokio::fs::metadata(SATELLITE_STATUS_CACHE_FILE).await.is_ok() {
@@ -244,9 +257,11 @@ async fn monitor_satellite_status(
                                 tracing::error!("Failed to serialize updated satellite status cache");
                             }
                             tracing::info!("Status change detected for {}: {} -> {}", sat.name, cached_sat.status, latest_status);
+                            data.push(format!("{}: {} -> {}", sat.name, cached_sat.status, latest_status));
                         }
                     } else {
                         tracing::warn!("No valid status found for {}", sat.name);
+                        data.push(format!("{}: No valid status found", sat.name));
                     }
                 } else {
                     tracing::warn!("Satellite {} not found in cache", sat.name);
@@ -275,13 +290,20 @@ async fn monitor_satellite_status(
             if let Ok(json_content) = serde_json::to_string_pretty(&cache_content) {
                 tokio::fs::write(SATELLITE_STATUS_CACHE_FILE, json_content).await.expect("Failed to write cache file");
                 tracing::info!("Satellite status cache file created successfully");
+                data.push("Satellite status cache file created successfully".to_string());
             } else {
                 tracing::error!("Failed to serialize satellite status cache");
+                msg = "Failed to serialize satellite status cache".to_string();
+                success = false;
             }
         }
     } else {
         tracing::error!("Failed to read satellite status cache file");
+        msg = "Failed to read satellite status cache file".to_string();
+        success = false;
     }
+
+    ApiResponse::new(success, data, msg)
 }
 
 fn get_latest_valid_status(

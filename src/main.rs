@@ -61,19 +61,6 @@ async fn run_console_listener(client: Arc<RwLock<task_manager::query_handler::Qu
             // This ensures that the client is not modified while we are querying
             // and allows multiple concurrent queries.
             let guard = client_clone.read().await;
-            // match guard.query(query_input.clone()).await {
-            //     Some(results) => {
-            //         let duration = start_time.elapsed();
-            //         tracing::info!("Query for '{}' completed in {:?}", input, duration);
-            //         for item in results {
-            //             println!("[Result] {}: {}", input, item);
-            //         }
-            //     }
-            //     None => {
-            //         tracing::warn!("No results found for satellite: {}", input);
-            //         println!("No results found for satellite: {}", input);
-            //     }
-            // }
             match guard.query(query_input.clone()).await {
                 response::ApiResponse { success: true, data: Some(results), message: None } => {
                     let duration = start_time.elapsed();
