@@ -1,3 +1,4 @@
+#![allow(unused)]
 use tokio::sync::{
     mpsc,
     oneshot,

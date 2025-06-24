@@ -132,8 +132,7 @@ fn format_satellite_status(
             let mut timeblock_status = Vec::new();
 
             for (idx, subdata) in status_array.iter().enumerate() {
-                // we only care about the last 18 time blocks
-                // that's to say, the last one and half days
+                // only process the first 18 time blocks
                 if idx >= 18 {
                     break;
                 }
@@ -147,7 +146,6 @@ fn format_satellite_status(
                             .and_then(|r| r.as_u64())
                             .unwrap_or(0);
 
-                        // 仅当有有效报告时才显示
                         if report_count > 0 {
                             has_valid_status = true;
                             timeblock_status.push(
