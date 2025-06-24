@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+import json
 
 app = Flask(__name__)
 
@@ -7,7 +8,7 @@ def receive_message():
     try:
         data = request.get_json(force=True)
         print("Received POST request with JSON:")
-        print(data)
+        print(json.dumps(data, indent=2, ensure_ascii=False))
 
         # 模拟响应
         return jsonify({
