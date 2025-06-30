@@ -233,6 +233,10 @@ async fn monitor_satellite_status(
             let cached_status: Vec<SatelliteStatusCache> = serde_json::from_str(&cache_content)
                 .expect("Failed to deserialize satellite status cache");
 
+            // Get current time in UTC
+            let now = chrono::Utc::now();
+            data.push(format!("Last Update Time: {}", now.to_rfc3339()));
+
             // Analyse status changes
             for sat in &satellite_status {
                 if let Some(cached_sat) = cached_status.iter().find(|c| c.name == sat.name) {
@@ -257,7 +261,7 @@ async fn monitor_satellite_status(
                                 tracing::error!("Failed to serialize updated satellite status cache");
                             }
                             tracing::info!("Status change detected for {}: {} -> {}", sat.name, cached_sat.status, latest_status);
-                            data.push(format!("{}: {} -> {}", sat.name, cached_sat.status, latest_status));
+                            data.push(format!("{}: {}", sat.name, latest_status));
                         }
                     } else {
                         tracing::warn!("No valid status found for {}", sat.name);

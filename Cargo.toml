@@ -7,7 +7,9 @@ edition = "2024"
 anyhow = "1.0.98"
 axum = "0.8.4"
 chrono = "0.4.41"
+eventsource-client = "0.15.0"
 full = "0.3.0"
+futures = "0.3.31"
 reqwest = { version = "0.12.20", features = ["blocking", "json"] }
 scraper = "0.23.1"
 serde = { version = "1.0.219", features = ["derive"] }

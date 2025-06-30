@@ -58,8 +58,13 @@ pub fn look_up_sat_status_from_json(
         if let Some(name) = sat.get("name").and_then(|n| n.as_str()) {
             if sat_name_list.iter().any(|s| sat_name_normalize(s) == sat_name_normalize(name)) {
                 found_sats.push(format_satellite_status(sat).join("\n"));
+                found_sats.push("\n".to_string());
             }
         }
+    }
+    // remove the last empty string if exists
+    while found_sats.last() == Some(&"\n".to_string()) {
+        found_sats.pop();
     }
     
     if found_sats.is_empty() {
@@ -149,16 +154,21 @@ fn format_satellite_status(
                         if report_count > 0 {
                             has_valid_status = true;
                             timeblock_status.push(
-                                format!(" Block {}: {} ({} reports)", 
-                                    idx + 1, desc, report_count)
+                                format!("Report Time: {}h ago", (idx + 1)*2)
                             );
+                            timeblock_status.push(
+                                format!("{} ({} reports)", 
+                                    desc, report_count
+                                )
+                            );
+                            break;
                         }
                     }
                 }
             }
 
             if has_valid_status {
-                result.push("Status per time block:".to_string());
+                result.push("Status:".to_string());
                 result.extend(timeblock_status);
             } else {
                 result.push("Status: No reports for last one and half days".to_string());

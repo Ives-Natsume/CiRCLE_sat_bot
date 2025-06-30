@@ -2,7 +2,7 @@
 aliases = ["aisat1"]
 
 [AO-123]
-aliases = ["AO123", "ao123", "asrtu"]
+aliases = ["AO123", "ao123", "asrtu", "阿斯图", "123"]
 
 [AO-27]
 aliases = ["AO27", "ao27"]
@@ -170,13 +170,13 @@ aliases = ["rs15", "RS15"]
 aliases = ["rs25", "RS25"]
 
 [RS-44]
-aliases = ["rs44", "RS44", "DOSAAF-5"]
+aliases = ["rs44", "RS44", "DOSAAF-5", "44"]
 
 [SO-124]
-aliases = ["so124", "SO124", "HADES-R", "hadesr"]
+aliases = ["so124", "SO124", "HADES-R", "hadesr", "124"]
 
 [SO-125]
-aliases = ["so125", "SO125", "HADES-ICM", "hadesicm", "icm"]
+aliases = ["so125", "SO125", "HADES-ICM", "hadesicm", "icm", "125"]
 
 [SO-50]
 aliases = ["so50", "SO50"]

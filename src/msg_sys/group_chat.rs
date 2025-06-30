@@ -1,11 +1,7 @@
 use reqwest;
 use serde_json;
 use tracing::info;
-use crate::{query, response:: ApiResponse};
-use axum::{
-    extract::Json,
-    response::IntoResponse,
-};
+use crate::{query, response::ApiResponse};
 use crate::msg_sys::prelude::*;
 
 const ENDPOINT_URL: &str = "http://localhost:3300/send_group_msg";
@@ -19,7 +15,7 @@ pub async fn send_group_msg(
     let message_text: String = response
         .data
         .map(|data| data.join("\n"))
-        .unwrap_or_else(|| "No message provided".to_string());
+        .unwrap_or_else(|| response.message.unwrap_or_else(|| "No data available".to_string()));
 
     let msg_body = serde_json::json!({
         "group_id": group_id,
@@ -53,20 +49,50 @@ pub async fn send_group_msg(
 }
 
 pub async fn send_group_msg_from_request(
-    Json(payload) : Json<IncomingRequest>,
-) -> impl IntoResponse {
-    let message_text = payload.message;
-    let group_id = payload.group_id;
-    info!("Received query from user: {}, group_id: {}, message: {}",
-          payload.sender.user_id, group_id, message_text);
+    message_raw_text: String,
+) {
+    let payload = match parse_message_event(&message_raw_text) {
+        Ok(payload) => payload,
+        Err(e) => {
+            tracing::error!("Failed to parse message event: {}", e);
+            return ;
+        }
+    };
     
     let mut response_data: Vec<String> = Vec::new();
     let mut response_msg: String = String::new();
     let mut success: bool = true;
+    let mut message_text: String = String::new();
+
+    let mut ated = false;
+    for (_, elem) in payload.message.iter().enumerate() {
+        match elem {
+            MessageElement::Text { text } => {
+                if ated {
+                    message_text.push_str(text);
+                }
+            }
+            MessageElement::At { qq, .. } => {
+                if qq == "3906406150" {
+                    ated = true;
+                }
+                continue;
+            }
+            _ => {
+                // Ignore
+            }
+        }
+    }
+    if ated == false {
+        return ;
+    }
+
+    info!("Received query from user: {}, group_id: {}",
+          payload.sender.user_id, payload.group_id);
 
     // query key words:
     // `/query <sat_name>`: look up for AMSAT data by satellite name
-    match message_text.find("/query") {
+    match message_text.find(" /query") {
         Some(idx) => {
             if idx != 0 {
                 response_msg = "Invalid command format. Use /query <sat_name>".to_string();
@@ -80,10 +106,9 @@ pub async fn send_group_msg_from_request(
     }
 
     if success {
-        let query_sat_name = message_text.trim_start_matches("/query").trim();
+        let query_sat_name = message_text.trim_start_matches(" /query").trim();
         if query_sat_name.trim().is_empty() {
-            tracing::warn!("Received empty message from user: {}, group_id: {}", payload.sender.user_id, group_id);
-            response_msg = "Empty message received".to_string();
+            response_msg = "Message should not be empty".to_string();
             success = false;
         }
 
@@ -100,7 +125,7 @@ pub async fn send_group_msg_from_request(
             ApiResponse { success: true, data: Some(results), message: None } => {
                 response_data = results;
                 if response_data.is_empty() {
-                    response_msg = format!("Internal error occurred while looking up: {}", query_sat_name);
+                    response_msg = format!("Internal error occurred while looking up for{}", query_sat_name);
                     success = false;
                 }
             }
@@ -115,23 +140,21 @@ pub async fn send_group_msg_from_request(
         }
     }
 
-    let response_text = if success {
-        response_data.join("\n")
-    } else {
-        response_msg
+    let response = ApiResponse {
+        success,
+        data: if response_data.is_empty() {
+            None
+        } else {
+            Some(response_data)
+        },
+        message: if response_msg.is_empty() {
+            None
+        } else {
+            Some(response_msg)
+        },
     };
 
-    let msg_body = serde_json::json!({
-        "group_id": group_id,
-        "message": [
-            {
-                "type": "text",
-                "data": {
-                    "text": response_text
-                }
-            }
-        ]
-    });
+    send_group_msg(response, payload.group_id).await;
 
-    Json(msg_body)
+    return ;
 }

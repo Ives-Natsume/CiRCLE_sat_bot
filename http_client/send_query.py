@@ -1,15 +1,16 @@
 import requests
 import json
 
-url = "http://127.0.0.1:3300/query"
+url = "http://127.0.0.1:3301/get_msg"
 
 # 构造模拟 POST 请求体
 payload = {
     "sender": {
-        "user_id": 114514
+        "user_id": 3386134415
     },
-    "group_id": 123456,
-    "message": "/query icm"
+    "group_id": 965954401,
+    "message": "/query icm",
+    "message_id": None,
 }
 
 # 发送 POST 请求

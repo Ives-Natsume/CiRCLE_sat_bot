@@ -5,13 +5,15 @@ mod logger;
 mod msg_sys;
 mod response;
 use sat_status::amsat_parser;
-use std::{net::SocketAddr, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::RwLock;
-use axum::{
-    routing::post,
-    Router,
+use futures::{TryStreamExt};
+use eventsource_client::{
+    ClientBuilder,
+    Client,
 };
 
+#[allow(unused_mut)]
 #[tokio::main(flavor = "multi_thread", worker_threads = 4)]
 async fn main() -> anyhow::Result<()> {
     let _logger = logger::init_logging("logs", "CiRCLE_sat_bot");
@@ -22,29 +24,43 @@ async fn main() -> anyhow::Result<()> {
     // start the scheduled task for AMSAT module updates
     task_manager::scheduled_tasks::start_scheduled_amsat_module();
 
-    // let json_file_path = "amsat_status.json";
-    // let toml_file_path = "satellites.toml";
-    // let (query_client, query_handler) = task_manager::query_handler::init_query_system(
-    //     json_file_path.to_string(),
-    //     toml_file_path.to_string(),
-    // );
+    // let addr = "0.0.0.0:3301";
+    // let app = Router::new()
+    //     .route("/", post(msg_sys::group_chat::send_group_msg_from_request));
+    // let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    // tracing::info!("Server listening on {}", addr);
+    // axum::serve(listener, app.into_make_service()).await.unwrap();
 
-    // let _query_handler_task = tokio::spawn(query_handler.run());
-    // let client = Arc::new(RwLock::new(query_client));
+    let url = "http://127.0.0.1:3300/_events";
+    let mut client = ClientBuilder::for_url(url)?
+        .header("Accept", "text/event-stream")?
+        .build();
 
-    let app = Router::new()
-        .route("/get_msg", post(msg_sys::group_chat::send_group_msg_from_request));
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3300));
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    tracing::info!("Server listening on {}", addr);
-    axum::serve(listener, app).await.unwrap();
+    tracing::info!("Connecting to SSE server at {}", url);
+    let mut stream = client.stream();
 
-    // run_console_listener(Arc::clone(&client)).await?;
+    while let Some(event) = stream.try_next().await? {
+        match event {
+            eventsource_client::SSE::Event(evt) => {
+                if evt.event_type == "message" {
+                    send_group_msg_from_request(evt.data.clone()).await;
+                }
+            }
+            eventsource_client::SSE::Comment(_) => {
+
+            }
+            eventsource_client::SSE::Connected(_) => {
+                tracing::info!("Connected to SSE server at {}", url);
+            }
+        }
+    }
 
     Ok(())
 }
 
 use tokio::io::{AsyncBufReadExt, BufReader as TokioBufReader};
+
+use crate::msg_sys::group_chat::send_group_msg_from_request;
 async fn _run_console_listener(client: Arc<RwLock<task_manager::query_handler::QueryClient>>) -> anyhow::Result<()> {
     let stdin = tokio::io::stdin();
     let mut reader = TokioBufReader::new(stdin).lines();
@@ -62,7 +78,7 @@ async fn _run_console_listener(client: Arc<RwLock<task_manager::query_handler::Q
 
         // Spawn a new task for each query
         let client_clone = Arc::clone(&client);
-        let query_input = input.to_string(); // Clone the input to move into the async block
+        let query_input = input.to_string();
         tokio::spawn(async move {
             tracing::debug!("Querying satellite: {}", query_input);
             let start_time = tokio::time::Instant::now();
