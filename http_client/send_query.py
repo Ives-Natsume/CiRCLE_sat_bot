@@ -9,7 +9,7 @@ payload = {
         "user_id": 114514
     },
     "group_id": 123456,
-    "message": "/query iss"
+    "message": "/query icm"
 }
 
 # 发送 POST 请求

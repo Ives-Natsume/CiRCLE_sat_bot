@@ -24,4 +24,4 @@ def receive_message():
         }), 400
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=3400)
+    app.run(host='0.0.0.0', port=3300)

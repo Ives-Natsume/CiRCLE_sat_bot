@@ -33,7 +33,7 @@ async fn main() -> anyhow::Result<()> {
     // let client = Arc::new(RwLock::new(query_client));
 
     let app = Router::new()
-        .route("/query", post(msg_sys::group_chat::send_group_msg_from_request));
+        .route("/get_msg", post(msg_sys::group_chat::send_group_msg_from_request));
     let addr = SocketAddr::from(([127, 0, 0, 1], 3300));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     tracing::info!("Server listening on {}", addr);

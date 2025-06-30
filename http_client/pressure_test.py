@@ -5,16 +5,13 @@ import random
 import uuid
 
 # 测试配置
-BASE_URL = "http://localhost:3300/query"
+BASE_URL = "http://localhost:3300/get_msg"
 NUM_USERS = 300
 REQUEST_DELAY = 0.001  # 秒 (模拟用户输入时间差异)
 
 def send_query(user_id, group_id):
     """模拟单个用户发送查询"""
     try:
-        # 创建唯一消息ID跟踪请求
-        message_id = str(uuid.uuid4())[:8]
-        
         # 准备请求数据
         payload = {
             "sender": {"user_id": user_id},

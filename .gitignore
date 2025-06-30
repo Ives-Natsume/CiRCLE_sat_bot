@@ -1,4 +1,5 @@
 /logs
 /target
+/http_client
 *.html
 *.json

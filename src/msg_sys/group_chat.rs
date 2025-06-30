@@ -8,7 +8,7 @@ use axum::{
 };
 use crate::msg_sys::prelude::*;
 
-const ENDPOINT_URL: &str = "http://localhost:3400";
+const ENDPOINT_URL: &str = "http://localhost:3300/send_group_msg";
 
 /// Sends a group message to the specified group ID using the provided API response.
 /// Send `ApiResponse.message` if no valid data is provided.
