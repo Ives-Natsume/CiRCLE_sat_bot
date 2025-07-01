@@ -5,7 +5,10 @@ mod logger;
 mod msg_sys;
 mod response;
 mod config;
+mod satellites;
+mod sat_pass_predict;
 use sat_status::amsat_parser;
+use sat_pass_predict::sat_pass_predict;
 use msg_sys::group_chat::message_handler;
 use std::sync::Arc;
 use tokio::{
