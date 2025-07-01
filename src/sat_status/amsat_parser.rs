@@ -2,6 +2,7 @@ use reqwest;
 use scraper::{Html, Selector};
 use serde::{Serialize, Deserialize};
 use tokio;
+use crate::config::Config;
 use crate::msg_sys;
 use crate::response::ApiResponse;
 
@@ -60,10 +61,10 @@ impl SatelliteStatusCache {
 }
 
 /// Run the amsat_module, with html parser and status watchdog
-pub async fn run_amsat_module() -> anyhow::Result<()> {
+pub async fn run_amsat_module(config: &Config) -> anyhow::Result<()> {
     let response = reqwest::get(AMSAT_URL).await?;
     let html_content = response.text().await?;
-    let broadcast_group_ids = vec![965954401];
+    let broadcast_group_ids = config.bot_config.group_id.clone();
 
     // parse the HTML content to extract satellite status
     let satellite_status = get_satellite_status(&html_content);

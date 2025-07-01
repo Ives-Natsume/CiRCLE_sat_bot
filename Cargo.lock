@@ -12,6 +12,7 @@ dependencies = [
  "eventsource-client",
  "full",
  "futures",
+ "regex",
  "reqwest",
  "scraper",
  "serde",

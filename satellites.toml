@@ -8,10 +8,10 @@ aliases = ["AO123", "ao123", "asrtu", "阿斯图", "123"]
 aliases = ["AO27", "ao27"]
 
 ["AO-7[A]"]
-aliases = ["AO7A", "ao7a"]
+aliases = ["AO7A", "ao7a", "ao7"]
 
 ["AO-7[B]"]
-aliases = ["AO7B", "ao7b"]
+aliases = ["AO7B", "ao7b", "ao7"]
 
 [AO-73]
 aliases = ["AO73", "ao73"]
@@ -98,7 +98,7 @@ aliases = ["io26", "IO26"]
 aliases = ["io86", "IO86"]
 
 [ISS-FM]
-aliases = ["issfm", "ISSFM", "iss voice", "iss-fm", "iss fm", "iss", "ariss", "ariss fm", "ariss voice"]
+aliases = ["issfm", "ISSFM", "iss voice", "iss-fm", "iss fm", "iss", "ariss", "ariss fm", "ariss voice", "zarya", "iss zarya"]
 
 [ISS-DATA]
 aliases = ["issdata", "iss packet", "iss aprs",  "iss-data", "iss data", "iss", "ariss", "ariss data", "ariss packet", "ariss aprs"]
@@ -194,31 +194,31 @@ aliases = ["sonate2sstv", "sonate2", "SONATE2SSTV", "SONATE2"]
 aliases = ["taurus1", "taurus"]
 
 [TEVEL2-1]
-aliases = ["tevel21", "tevel2"]
+aliases = ["tevel21", "tevel2", "tevel"]
 
 [TEVEL2-2]
-aliases = ["tevel22", "tevel2"]
+aliases = ["tevel22", "tevel2", "tevel"]
 
 [TEVEL2-3]
-aliases = ["tevel23", "tevel2"]
+aliases = ["tevel23", "tevel2", "tevel"]
 
 [TEVEL2-4]
-aliases = ["tevel24", "tevel2"]
+aliases = ["tevel24", "tevel2", "tevel"]
 
 [TEVEL2-5]
-aliases = ["tevel25", "tevel2"]
+aliases = ["tevel25", "tevel2", "tevel"]
 
 [TEVEL2-6]
-aliases = ["tevel26", "tevel2"]
+aliases = ["tevel26", "tevel2", "tevel"]
 
 [TEVEL2-7]
-aliases = ["tevel27", "tevel2"]
+aliases = ["tevel27", "tevel2", "tevel"]
 
 [TEVEL2-8]
-aliases = ["tevel28", "tevel2"]
+aliases = ["tevel28", "tevel2", "tevel"]
 
 [TEVEL2-9]
-aliases = ["tevel29", "tevel2"]
+aliases = ["tevel29", "tevel2", "tevel"]
 
 [TO-108]
 aliases = ["to108", "TO108"]

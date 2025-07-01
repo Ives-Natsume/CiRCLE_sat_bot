@@ -1,8 +1,5 @@
 use serde::{Serialize, Deserialize};
-use serde_json::{
-    Value,
-};
-use std::collections::HashMap;
+use serde_json;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -46,7 +43,7 @@ pub enum MessageElement {
     Text {
         text: String,
     },
-    #[serde(rename = "other")]
+    #[serde(other)]
     Unknown
 }
 

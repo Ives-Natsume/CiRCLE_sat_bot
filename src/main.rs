@@ -4,9 +4,19 @@ mod task_manager;
 mod logger;
 mod msg_sys;
 mod response;
+mod config;
 use sat_status::amsat_parser;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::{
+    sync::{
+        RwLock,
+        Semaphore,
+    },
+    time::{
+        timeout,
+        Duration,
+    }
+};
 use futures::{TryStreamExt};
 use eventsource_client::{
     ClientBuilder,
@@ -19,31 +29,38 @@ async fn main() -> anyhow::Result<()> {
     let _logger = logger::init_logging("logs", "CiRCLE_sat_bot");
     tracing::info!("Logging system initialized");
 
-    sat_status::amsat_parser::run_amsat_module().await?;
+    let config = config::load_config("config.json");
+    sat_status::amsat_parser::run_amsat_module(&config).await?;
+    task_manager::scheduled_tasks::start_scheduled_amsat_module(&config);
 
-    // start the scheduled task for AMSAT module updates
-    task_manager::scheduled_tasks::start_scheduled_amsat_module();
-
-    // let addr = "0.0.0.0:3301";
-    // let app = Router::new()
-    //     .route("/", post(msg_sys::group_chat::send_group_msg_from_request));
-    // let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    // tracing::info!("Server listening on {}", addr);
-    // axum::serve(listener, app.into_make_service()).await.unwrap();
-
-    let url = "http://127.0.0.1:3300/_events";
-    let mut client = ClientBuilder::for_url(url)?
+    let url = format!("{}/_events", config.bot_config.url);
+    let mut client = ClientBuilder::for_url(url.as_str())?
         .header("Accept", "text/event-stream")?
         .build();
 
     tracing::info!("Connecting to SSE server at {}", url);
     let mut stream = client.stream();
+    let semaphore = Arc::new(Semaphore::new(10));
 
     while let Some(event) = stream.try_next().await? {
         match event {
             eventsource_client::SSE::Event(evt) => {
                 if evt.event_type == "message" {
-                    send_group_msg_from_request(evt.data.clone()).await;
+                    let config = config.clone();
+                    let data = evt.data.clone();
+                    let permit = semaphore.clone().acquire_owned().await.unwrap();
+                    tokio::spawn(async move {
+                        let _permit = permit;
+                        let timeout_duration = Duration::from_secs(config.backend_config.timeout);
+                        match timeout(timeout_duration, message_handler(data, &config)).await {
+                            Ok(_) => {
+
+                            }
+                            Err(e) => {
+                                tracing::error!("Timeout or error processing message: {}", e);
+                            }
+                        }
+                });
                 }
             }
             eventsource_client::SSE::Comment(_) => {
@@ -60,7 +77,7 @@ async fn main() -> anyhow::Result<()> {
 
 use tokio::io::{AsyncBufReadExt, BufReader as TokioBufReader};
 
-use crate::msg_sys::group_chat::send_group_msg_from_request;
+use crate::msg_sys::group_chat::message_handler;
 async fn _run_console_listener(client: Arc<RwLock<task_manager::query_handler::QueryClient>>) -> anyhow::Result<()> {
     let stdin = tokio::io::stdin();
     let mut reader = TokioBufReader::new(stdin).lines();

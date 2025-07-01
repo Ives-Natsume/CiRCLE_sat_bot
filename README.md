@@ -6,8 +6,40 @@
 
 ## 功能列表
 
- - 获得AMSAT卫星可用性报告
+ - 查询AMSAT卫星状态
+ - AMSAT卫星状态变更通知
  - 暂时没了
+
+## 使用说明
+
+目前仅支持群内直接@使用，回复的@或者其他方式都不会响应
+
+可用命令：
+
+ - `/query <sat_name>`，`<sat_name>`对大小写和特殊符号不敏感，支持简称/别名
+ - `/help` (`/h`)
+ - `/about`
+
+使用示例：
+
+```
+TX:
+@Shirokane Rinko /query iss
+
+RX:
+ISS-DATA:
+Status:
+Report time: xx
+Transponder/Repeater Active (1 reports)
+
+ISS-FM:
+Status:
+Report time: xx
+ISS Crew (Voice) Active (3 reports)
+```
+
+`/query`命令会返回所有符合查询条件的卫星
+由于数据直接来源于AMSAT，所以AMSAT没有的，这里也没有
 
 ## 项目结构
 
@@ -26,8 +58,7 @@
 
 预处理后到之前拉取的json文件里查找就行
 
-### 任务管理系统
+### Bot系统
 
-既然是群聊bot，就要考虑可能的高并发，所以该项目是异步结构，以上所有环节都是异步进行
-
-不过作者自己其实不太会异步就是了，感谢AI开源
+使用LLOneBot，其实我还是没搞清楚OneBot协议该怎么用，反正最后是跑起来了
+_It Just Works_

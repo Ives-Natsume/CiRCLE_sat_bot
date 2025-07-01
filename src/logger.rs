@@ -1,4 +1,9 @@
-use std::path::Path;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    time::{Duration, SystemTime},
+};
+use tokio::task;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_appender::non_blocking::{NonBlocking, WorkerGuard};
@@ -7,6 +12,7 @@ use tracing_appender::non_blocking::{NonBlocking, WorkerGuard};
 pub struct LoggerGuard(WorkerGuard);
 
 pub fn init_logging(log_dir: impl AsRef<Path>, prefix: &str) -> LoggerGuard {
+    let log_dir = log_dir.as_ref().to_path_buf();
     let builder = EnvFilter::builder()
         .with_default_directive("CiRCLE_sat_bot=info".parse().unwrap());
 
@@ -17,7 +23,7 @@ pub fn init_logging(log_dir: impl AsRef<Path>, prefix: &str) -> LoggerGuard {
         .rotation(Rotation::DAILY)
         .filename_prefix(prefix)
         .filename_suffix("log")  // Suffix for log files
-        .build(log_dir)
+        .build(&log_dir)
         .expect("Failed to create file appender");
     let (non_blocking, guard) = NonBlocking::new(file_appender);
 
@@ -35,5 +41,43 @@ pub fn init_logging(log_dir: impl AsRef<Path>, prefix: &str) -> LoggerGuard {
         .with(stdout_layer)
         .init();
 
+    start_log_cleanup_task(log_dir, prefix.to_string());
+
     LoggerGuard(guard)
+}
+
+fn start_log_cleanup_task(log_dir: PathBuf, prefix: String) {
+    const MAX_AGE: Duration = Duration::from_secs(60 * 60 * 24 * 3);
+    const CLEANUP_INTERVAL: Duration = Duration::from_secs(60 * 60);
+
+    task::spawn(async move {
+        loop {
+            if let Err(e) = cleanup_old_logs(&log_dir, &prefix, MAX_AGE) {
+                tracing::warn!("Log cleanup failed: {}", e);
+            }
+            tokio::time::sleep(CLEANUP_INTERVAL).await;
+        }
+    });
+}
+
+fn cleanup_old_logs(log_dir: &Path, prefix: &str, max_age: Duration) -> std::io::Result<()> {
+    let now = SystemTime::now();
+
+    for entry in fs::read_dir(log_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+            if file_name.starts_with(prefix) && file_name.ends_with(".log") {
+                let metadata = fs::metadata(&path)?;
+                if let Ok(modified) = metadata.modified() {
+                    if now.duration_since(modified).unwrap_or_default() > max_age {
+                        fs::remove_file(&path)?;
+                        tracing::info!("Deleted old log file: {}", file_name);
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }

@@ -1,8 +1,10 @@
 use std::time::Duration;
 use crate::amsat_parser::run_amsat_module;
+use crate::config::Config;
 use chrono::{self, Utc, Timelike};
 
-pub fn start_scheduled_amsat_module() {
+pub fn start_scheduled_amsat_module(config: &Config) {
+    let config = config.clone();
     let _amsat_task = tokio::spawn(async move {
         const MAX_RETRIES: u32 = 3;
         const RETRY_DELAY: Duration = Duration::from_secs(60);
@@ -34,7 +36,7 @@ pub fn start_scheduled_amsat_module() {
             loop {
                 attempt += 1;
                 
-                match run_amsat_module().await {
+                match run_amsat_module(&config).await {
                     Ok(_) => {
                         tracing::info!("AMSAT updated successfully");
                         break;

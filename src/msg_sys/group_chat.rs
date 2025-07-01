@@ -1,7 +1,10 @@
 use reqwest;
 use serde_json;
-use tracing::info;
-use crate::{query, response::ApiResponse};
+use crate::{
+    query,
+    response::ApiResponse,
+    config
+};
 use crate::msg_sys::prelude::*;
 
 const ENDPOINT_URL: &str = "http://localhost:3300/send_group_msg";
@@ -48,95 +51,94 @@ pub async fn send_group_msg(
     }
 }
 
-pub async fn send_group_msg_from_request(
-    message_raw_text: String,
+async fn router(
+    payload: &MessageEvent,
+    config: &config::Config,
 ) {
-    let payload = match parse_message_event(&message_raw_text) {
-        Ok(payload) => payload,
-        Err(e) => {
-            tracing::error!("Failed to parse message event: {}", e);
-            return ;
-        }
+    let mut message_text: String = String::new();
+    let mut response: ApiResponse<Vec<String>> = ApiResponse {
+        success: false,
+        data: None,
+        message: None,
     };
-    
+
+    for elem in &payload.message {
+        match elem {
+            MessageElement::Text { text } => {
+                message_text.push_str(text);
+            }
+            _ => {}
+        }
+    }
+
+    let re = regex::Regex::new(r"^\s*/(\w+)(?:\s+([\s\S]*))?$").unwrap();
+
+    if let Some(caps) = re.captures(message_text.as_str()) {
+        let command = caps.get(1).unwrap().as_str().to_string();
+        let args = caps.get(2).map(|m| m.as_str().to_string()).unwrap_or_default();
+
+        match command.as_str() {
+            "query" => {
+                response = query_handler(&args).await;
+            },
+            "help" | "h" => {
+                response.success = true;
+                response.data = Some(vec![
+                    "Available commands:".to_string(),
+                    "/query <sat_name>\n- Look up AMSAT data by satellite name\n".to_string(),
+                    "/about\n- About me\n".to_string(),
+                    "/help\n- Show this help message".to_string(),
+                ]);
+            },
+            "about" => {
+                response.success = true;
+                response.data = config.backend_config.about.clone();
+            }
+            _ => {
+                response.message = Some(format!("Unknown command: {}\nUse /help for available commands", command));
+            }
+        }
+    } else {
+        response.message = Some("gsm!".to_string());
+    }
+
+    let group_id = payload.group_id;
+    send_group_msg(response, group_id).await;
+}
+
+async fn query_handler(
+    args: &str,
+) -> ApiResponse<Vec<String>> {
     let mut response_data: Vec<String> = Vec::new();
     let mut response_msg: String = String::new();
     let mut success: bool = true;
-    let mut message_text: String = String::new();
-
-    let mut ated = false;
-    for (_, elem) in payload.message.iter().enumerate() {
-        match elem {
-            MessageElement::Text { text } => {
-                if ated {
-                    message_text.push_str(text);
-                }
-            }
-            MessageElement::At { qq, .. } => {
-                if qq == "3906406150" {
-                    ated = true;
-                }
-                continue;
-            }
-            _ => {
-                // Ignore
-            }
-        }
-    }
-    if ated == false {
-        return ;
-    }
-
-    info!("Received query from user: {}, group_id: {}",
-          payload.sender.user_id, payload.group_id);
 
     // query key words:
     // `/query <sat_name>`: look up for AMSAT data by satellite name
-    match message_text.find(" /query") {
-        Some(idx) => {
-            if idx != 0 {
-                response_msg = "Invalid command format. Use /query <sat_name>".to_string();
+    let json_file_path = "amsat_status.json";
+    let toml_file_path = "satellites.toml";
+
+    let query_response = query::sat_query::look_up_sat_status_from_json(
+        json_file_path,
+        toml_file_path,
+        args,
+    );
+
+    match query_response {
+        ApiResponse { success: true, data: Some(results), message: None } => {
+            response_data = results;
+            if response_data.is_empty() {
+                response_msg = format!("Internal error occurred while looking up for{}", args);
                 success = false;
             }
         }
-        None => {
-            response_msg = "Invalid command format. Use /query <sat_name>".to_string();
+        ApiResponse { success: false, data: None, message: Some(msg) } => {
+            response_msg = msg;
             success = false;
         }
-    }
-
-    if success {
-        let query_sat_name = message_text.trim_start_matches(" /query").trim();
-        if query_sat_name.trim().is_empty() {
-            response_msg = "Message should not be empty".to_string();
+        _ => {
+            response_msg = "Unexpected response format".to_string();
             success = false;
-        }
-
-        let json_file_path = "amsat_status.json";
-        let toml_file_path = "satellites.toml";
-
-        let query_response = query::sat_query::look_up_sat_status_from_json(
-            json_file_path,
-            toml_file_path,
-            query_sat_name,
-        );
-
-        match query_response {
-            ApiResponse { success: true, data: Some(results), message: None } => {
-                response_data = results;
-                if response_data.is_empty() {
-                    response_msg = format!("Internal error occurred while looking up for{}", query_sat_name);
-                    success = false;
-                }
-            }
-            ApiResponse { success: false, data: None, message: Some(msg) } => {
-                response_msg = msg;
-                success = false;
-            }
-            _ => {
-                response_msg = "Unexpected response format".to_string();
-                success = false;
-            }
         }
     }
 
@@ -154,7 +156,24 @@ pub async fn send_group_msg_from_request(
         },
     };
 
-    send_group_msg(response, payload.group_id).await;
+    response
+}
 
-    return ;
+pub async fn message_handler(
+    message_raw_text: String,
+    config: &config::Config,
+) {
+    match parse_message_event(&message_raw_text) {
+        Ok(payload) => {
+            // check if message contains AT element
+            if payload.message.iter().any(|elem| {
+                matches!(elem, MessageElement::At { qq, .. } if *qq == config.bot_config.qq_id)
+            }) {
+                router(&payload, &config).await;
+            }
+        },
+        Err(_) => {
+            //tracing::error!("Failed to parse message event: {}", e);
+        }
+    };
 }

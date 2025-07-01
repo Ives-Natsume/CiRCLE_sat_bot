@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use serde::Deserialize;
+use chrono::Timelike;
 use crate::response::ApiResponse;
 
 #[allow(dead_code)]
@@ -128,7 +129,7 @@ fn format_satellite_status(
     let mut result: Vec<String> = Vec::new();
     
     if let Some(name) = sat.get("name").and_then(|n| n.as_str()) {
-        result.push(format!("Satellite Name: {}", name));
+        result.push(format!("{}:", name));
 
         // handle status
         if let Some(status_array) = sat.get("status").and_then(|s| s.as_array()) {
@@ -153,8 +154,11 @@ fn format_satellite_status(
 
                         if report_count > 0 {
                             has_valid_status = true;
+                            let current_time = chrono::Utc::now();
+                            let current_houer = current_time.hour() as usize;
+                            let time_passed = current_houer % 2 + idx * 2;
                             timeblock_status.push(
-                                format!("Report Time: {}h ago", (idx + 1)*2)
+                                format!("Report Time: about {}h ago", time_passed)
                             );
                             timeblock_status.push(
                                 format!("{} ({} reports)", 
