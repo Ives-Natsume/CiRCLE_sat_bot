@@ -6,12 +6,14 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.98"
 axum = "0.8.4"
-chrono = "0.4.41"
+chrono = { version = "0.4.41", features = ["serde", "clock"] }
+chrono-tz = "0.8"
 eventsource-client = "0.15.0"
 full = "0.3.0"
 futures = "0.3.31"
+lazy_static = "1.4"
 regex = "1.11.1"
-reqwest = { version = "0.12.20", features = ["blocking", "json"] }
+reqwest = { version = "0.12.20", features = ["blocking", "json", "tls"] }
 scraper = "0.23.1"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
