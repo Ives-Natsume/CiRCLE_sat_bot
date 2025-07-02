@@ -185,7 +185,7 @@ pub async fn message_handler(
                 router(&payload, &config).await;
             }
             else if payload.message.iter().any(|elem| {
-                matches!(elem, MessageElement::Text { text } if text.starts_with("/q") || text.starts_with("/h") || text.starts_with("/p")) &&
+                matches!(elem, MessageElement::Text { text } if text.starts_with("/q") || text.starts_with("/h") || text.starts_with("/p") || text.starts_with("/a")) &&
                 !matches!(elem, MessageElement::At { .. })
             }){
                 router(&payload, &config).await;
