@@ -48,12 +48,18 @@ pub async fn update_sat_pass_cache(config: &Config) -> anyhow::Result<()> {
 
                         let parsed_passes = passes
                             .iter()
-                            .map(|p| PassInfo {
-                                startUTC: p["startUTC"].as_i64().unwrap_or(0),
+                            .map(|p| {
+                                let start = p["startUTC"].as_i64().unwrap_or(0);
+                                let end = p["endUTC"].as_i64().unwrap_or(0);
+                                let duration = if end > start {(end - start) as u64} else {0};
+                                
+                                PassInfo {
+                                startUTC: start,
                                 maxEl: p["maxEl"].as_f64().unwrap_or(0.0),
                                 maxUTC: p["maxUTC"].as_i64().unwrap_or(0),
-                                endUTC: p["endUTC"].as_i64().unwrap_or(0),
-                                duration: p["duration"].as_u64().unwrap_or(0),
+                                endUTC: end,
+                                duration,
+                                }
                             })
                             .collect();
 
