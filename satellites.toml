@@ -146,10 +146,10 @@ aliases = ["oufti1", "oufti"]
 aliases = ["picsat", "picsat1"]
 
 ["PO-101[APRS]"]
-aliases = ["po101aprs", "po101", "PO101APRS", "PO101", "Diwata-2"]
+aliases = ["po101aprs", "po101", "PO101APRS", "PO101", "Diwata-2", "101"]
 
 ["PO-101[FM]"]
-aliases = ["po101fm", "po101", "PO101FM", "PO101", "Diwata-2"]
+aliases = ["po101fm", "po101", "PO101FM", "PO101", "Diwata-2", "101"]
 
 [QIKCOM-1]
 aliases = ["qikcom1", "qikcom"]
@@ -179,7 +179,7 @@ aliases = ["so124", "SO124", "HADES-R", "hadesr", "124", "hdr"]
 aliases = ["so125", "SO125", "HADES-ICM", "hadesicm", "icm", "125"]
 
 [SO-50]
-aliases = ["so50", "SO50"]
+aliases = ["so50", "SO50", "50"]
 
 [SO-33]
 aliases = ["so33", "SO33"]

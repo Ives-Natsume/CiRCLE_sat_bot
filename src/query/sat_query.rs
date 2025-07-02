@@ -157,7 +157,7 @@ fn format_satellite_status(
                             let current_houer = current_time.hour() as usize;
                             let time_passed = current_houer % 2 + idx * 2;
                             timeblock_status.push(
-                                format!("大约{}小时以前有{}个{}报告喵", time_passed, report_count, desc)
+                                format!("大约{}小时以前有{}个报告喵，{}的说", time_passed, report_count, crate::config::t(desc, "cn"))
                             );
                             // timeblock_status.push(
                             //     format!("{} ({} reports)", 
@@ -174,7 +174,7 @@ fn format_satellite_status(
                 //result.push("Status:".to_string());
                 result.extend(timeblock_status);
             } else {
-                result.push("过去两天都没人报告喵".to_string());
+                result.push("过去两天都没人报告喵，去上传报告吧~".to_string());
             }
         } else {
             result.push("Rinko不知道喵~".to_string());
