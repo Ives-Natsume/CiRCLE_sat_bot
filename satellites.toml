@@ -173,7 +173,7 @@ aliases = ["rs25", "RS25"]
 aliases = ["rs44", "RS44", "DOSAAF-5", "44"]
 
 [SO-124]
-aliases = ["so124", "SO124", "HADES-R", "hadesr", "124"]
+aliases = ["so124", "SO124", "HADES-R", "hadesr", "124", "hdr"]
 
 [SO-125]
 aliases = ["so125", "SO125", "HADES-ICM", "hadesicm", "icm", "125"]

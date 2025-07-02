@@ -3,8 +3,8 @@ use crate::amsat_parser::run_amsat_module;
 use crate::config::Config;
 use chrono::{self, Utc, Timelike};
 
-pub fn start_scheduled_amsat_module(config: &Config) {
-    let config = config.clone();
+pub fn start_scheduled_module(config: &Config) {
+    let config_cp1 = config.clone();
     let _amsat_task = tokio::spawn(async move {
         const MAX_RETRIES: u32 = 3;
         const RETRY_DELAY: Duration = Duration::from_secs(60);
@@ -36,7 +36,7 @@ pub fn start_scheduled_amsat_module(config: &Config) {
             loop {
                 attempt += 1;
                 
-                match run_amsat_module(&config).await {
+                match run_amsat_module(&config_cp1).await {
                     Ok(_) => {
                         tracing::info!("AMSAT updated successfully");
                         break;
@@ -52,6 +52,20 @@ pub fn start_scheduled_amsat_module(config: &Config) {
                     }
                 }
             }
+        }
+    });
+
+    let config_cp2 = config.clone();
+    let _sat_pass_data_update = tokio::spawn(async move {
+        const PASS_UPDATE_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24); // 24 hours
+
+        loop {
+            tracing::info!("Starting satellite pass data update");
+            match crate::pass_query::sat_pass_predict::update_sat_pass_cache(&config_cp2).await {
+                Ok(_) => tracing::info!("Satellite pass data updated successfully"),
+                Err(e) => tracing::error!("Error updating satellite pass data: {}", e),
+            }
+            tokio::time::sleep(PASS_UPDATE_INTERVAL).await;
         }
     });
 }

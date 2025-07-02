@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct Config {
     pub bot_config: BotConfig,
     pub backend_config: BackendConfig,
+    pub n2yo_config: N2yoConfig,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -16,8 +17,19 @@ pub struct BotConfig {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BackendConfig {
     pub about: Option<Vec<String>>,
+    pub help: Option<Vec<String>>,
     pub timeout: u64,
     pub concurrent_limit: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct N2yoConfig {
+    pub api_key: String,
+    pub lat: f64,
+    pub lon: f64,
+    pub alt: f64,
+    pub day: u32,
+    pub min_elevation: u32,
 }
 
 pub fn load_config(config_path: &str) -> Config {

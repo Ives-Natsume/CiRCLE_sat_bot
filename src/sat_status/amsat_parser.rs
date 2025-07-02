@@ -235,8 +235,8 @@ async fn monitor_satellite_status(
                 .expect("Failed to deserialize satellite status cache");
 
             // Get current time in UTC
-            let now = chrono::Utc::now();
-            data.push(format!("Last Update Time: {}", now.to_rfc3339()));
+            let _now = chrono::Utc::now();
+            data.push(format!("数据已更新喵~"));
 
             // Analyse status changes
             for sat in &satellite_status {
@@ -266,7 +266,7 @@ async fn monitor_satellite_status(
                         }
                     } else {
                         tracing::warn!("No valid status found for {}", sat.name);
-                        data.push(format!("{}: No valid status found", sat.name));
+                        data.push(format!("找不到{}的数据喵，换个卫星试试吧", sat.name));
                     }
                 } else {
                     tracing::warn!("Satellite {} not found in cache", sat.name);
@@ -295,16 +295,16 @@ async fn monitor_satellite_status(
             if let Ok(json_content) = serde_json::to_string_pretty(&cache_content) {
                 tokio::fs::write(SATELLITE_STATUS_CACHE_FILE, json_content).await.expect("Failed to write cache file");
                 tracing::info!("Satellite status cache file created successfully");
-                data.push("Satellite status cache file created successfully".to_string());
+                data.push("数据保存成功~".to_string());
             } else {
                 tracing::error!("Failed to serialize satellite status cache");
-                msg = "Failed to serialize satellite status cache".to_string();
+                msg = "卫星数据序列化失败:(".to_string();
                 success = false;
             }
         }
     } else {
         tracing::error!("Failed to read satellite status cache file");
-        msg = "Failed to read satellite status cache file".to_string();
+        msg = "卫星数据读取失败:(".to_string();
         success = false;
     }
 

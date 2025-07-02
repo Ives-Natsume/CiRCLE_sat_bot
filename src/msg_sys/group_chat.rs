@@ -78,28 +78,41 @@ async fn router(
         let args = caps.get(2).map(|m| m.as_str().to_string()).unwrap_or_default();
 
         match command.as_str() {
-            "query" => {
+            "query" | "q"=> {
                 response = query_handler(&args).await;
             },
             "help" | "h" => {
                 response.success = true;
-                response.data = Some(vec![
-                    "Available commands:".to_string(),
-                    "/query <sat_name>\n- Look up AMSAT data by satellite name\n".to_string(),
-                    "/about\n- About me\n".to_string(),
-                    "/help\n- Show this help message".to_string(),
-                ]);
+                response.data = config.backend_config.help.clone();
+            },
+            "pass" | "p" => {
+                if payload.group_id != 965954401 {
+                    response.message = Some("这是只有CiRCLE成员才能使用的魔法喵~".to_string());
+                    send_group_msg(response, payload.group_id).await;
+                    return;
+                }
+                if args.is_empty() {
+                    response.message = Some("Please provide a satellite name to query pass data.".to_string());
+                } else {
+                    let query_response = crate::pass_query::sat_pass_predict::query_satellite(Some(args));
+                    if query_response.is_empty() {
+                        response.message = Some("No pass data found for the provided satellite name.".to_string());
+                    } else {
+                        response.success = true;
+                        response.data = Some(query_response);
+                    }
+                }
             },
             "about" => {
                 response.success = true;
                 response.data = config.backend_config.about.clone();
             }
             _ => {
-                response.message = Some(format!("Unknown command: {}\nUse /help for available commands", command));
+                response.message = Some(format!("说了这些难懂的话，你也有责任吧？"));
             }
         }
     } else {
-        response.message = Some("gsm!".to_string());
+        response.message = Some("干什么！".to_string());
     }
 
     let group_id = payload.group_id;
@@ -128,7 +141,7 @@ async fn query_handler(
         ApiResponse { success: true, data: Some(results), message: None } => {
             response_data = results;
             if response_data.is_empty() {
-                response_msg = format!("Internal error occurred while looking up for{}", args);
+                response_msg = format!("Rinko宕机了喵...重新试试吧");
                 success = false;
             }
         }
@@ -137,7 +150,7 @@ async fn query_handler(
             success = false;
         }
         _ => {
-            response_msg = "Unexpected response format".to_string();
+            response_msg = "Ako酱...总感觉...有什么不好的事情发生了".to_string();
             success = false;
         }
     }
@@ -169,6 +182,12 @@ pub async fn message_handler(
             if payload.message.iter().any(|elem| {
                 matches!(elem, MessageElement::At { qq, .. } if *qq == config.bot_config.qq_id)
             }) {
+                router(&payload, &config).await;
+            }
+            else if payload.message.iter().any(|elem| {
+                matches!(elem, MessageElement::Text { text } if text.starts_with("/q") || text.starts_with("/h") || text.starts_with("/p")) &&
+                !matches!(elem, MessageElement::At { .. })
+            }){
                 router(&payload, &config).await;
             }
         },

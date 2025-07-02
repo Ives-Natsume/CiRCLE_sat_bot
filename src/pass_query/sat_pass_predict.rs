@@ -1,18 +1,14 @@
-use chrono::{DateTime, Duration, Local, NaiveDateTime, TimeZone};
+use chrono::{Duration, Local, TimeZone};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, path::Path};
-use tokio::time::Instant;
-use crate::satellites::SATELLITE_LIST;
+use super::satellites::SATELLITE_LIST;
+use crate::config::Config;
+use crate::query::sat_query::sat_name_normalize;
 
 const CACHE_FILE: &str = "sat_pass_cache.json";
-const LAT: &str = "34.3242";
-const LON: &str = "108.8750";
-const ALT: &str = "200";
-const MIN_ELEVATION: &str = "10";
-const DAY: &str = "3";
-const API_KEY: &str = "xxx";
 
+#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PassInfo {
     pub startUTC: i64,
@@ -30,14 +26,15 @@ pub struct SatPassData {
     pub last_update: i64,
 }
 
-pub async fn update_sat_pass_cache() -> anyhow::Result<()> {
+pub async fn update_sat_pass_cache(config: &Config) -> anyhow::Result<()> {
     let client = Client::new();
     let mut cache: HashMap<String, SatPassData> = HashMap::new();
+    let conf = config.n2yo_config.clone();
 
     for (name, sat_info) in SATELLITE_LIST.iter() {
         let url = format!(
             "https://api.n2yo.com/rest/v1/satellite/visualpasses/{}/{}/{}/{}/{}/{}/&apiKey={}",
-            sat_info.id, LAT, LON, ALT, DAY, MIN_ELEVATION, API_KEY
+            sat_info.id, conf.lat, conf.lon, conf.alt, conf.day, conf.min_elevation, conf.api_key
         );
 
         //请求api
@@ -46,7 +43,8 @@ pub async fn update_sat_pass_cache() -> anyhow::Result<()> {
                 Ok(body) => match serde_json::from_str::<serde_json::Value>(&body) {
                     Ok(json) => {
                         let info = &json["info"];
-                        let passes = json["passes"].as_array().unwrap_or(&vec![]);
+                        let defaut_vec = Vec::new();
+                        let passes = json["passes"].as_array().unwrap_or(&defaut_vec);
 
                         let parsed_passes = passes
                             .iter()
@@ -73,15 +71,15 @@ pub async fn update_sat_pass_cache() -> anyhow::Result<()> {
                         );
                     }
                     Err(e) => {
-                        eprintln!("解析 JSON 失败：{} ({})", name, e);
+                        tracing::error!("解析 JSON 失败：{} ({})", name, e);
                     }
                 },
                 Err(e) => {
-                    eprintln!("读取响应正文失败：{} ({})", name, e);
+                    tracing::error!("读取响应正文失败：{} ({})", name, e);
                 }
             },
             Err(e) => {
-                eprintln!("请求失败：{} ({})", name, e);
+                tracing::error!("请求失败：{} ({})", name, e);
             }
         }
     }
@@ -92,33 +90,44 @@ pub async fn update_sat_pass_cache() -> anyhow::Result<()> {
 
     let bj_now = chrono::Utc::now() + Duration::hours(8);
     let fmt_time = bj_now.format("%Y年%m月%d日%H时%M分").to_string();
-    println!("卫星预测信息更新时间: {}", fmt_time);
+    tracing::info!("卫星预测信息更新时间: {}", fmt_time);
 
     Ok(())
 }
 
 // 缓存过期(2days)判定
-pub fn need_update_cache() -> bool {
+fn _need_update_cache() -> bool {
     if !Path::new(CACHE_FILE).exists() {
         return true;
     }
     let content = match fs::read_to_string(CACHE_FILE) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("读取缓存文件失败: {}", e);
+            tracing::error!("读取缓存文件失败: {}", e);
             return true;
         }
     };
 
-    if let Ok(data): Result<HashMap<String, SatPassData>, _> = serde_json::from_str(&content) {
-        let latest = data.values().map(|d| d.last_update).max().unwrap_or(0);
-        let now = chrono::Utc::now().timestamp();
-        return now - latest > 60 * 60 * 24 * 2;
-    }
-    true
+    // if let Ok(data): Result<HashMap<String, SatPassData>, _> = serde_json::from_str(&content) {
+    //     let latest = data.values().map(|d| d.last_update).max().unwrap_or(0);
+    //     let now = chrono::Utc::now().timestamp();
+    //     return now - latest > 60 * 60 * 24 * 2;
+    // }
+
+    let data: HashMap<String, SatPassData> = match serde_json::from_str(&content) {
+        Ok(d) => d,
+        Err(e) => {
+            tracing::error!("解析缓存数据失败: {}", e);
+            return true;
+        }
+    };
+    let latest = data.values().map(|d| d.last_update).max().unwrap_or(0);
+    let now = chrono::Utc::now().timestamp();
+
+    return now - latest > 60 * 60 * 24 * 2; // 2 days in seconds
 }
 
-// 数据可视化并推送
+// Query satellite pass data
 pub fn query_satellite(name: Option<String>) -> Vec<String> {
     let content = fs::read_to_string(CACHE_FILE).unwrap_or_default();
     let data: HashMap<String, SatPassData> = serde_json::from_str(&content).unwrap_or_default();
@@ -130,9 +139,9 @@ pub fn query_satellite(name: Option<String>) -> Vec<String> {
             if let Some(key) = match_name {
                 if let Some(sat) = data.get(&key) {
                     if let Some(p) = sat.passes.first() {
-                        let start = Local.timestamp_opt(p.startUTC, 0).unwrap_or_else(|| Local::now());
+                        let start = Local.timestamp_opt(p.startUTC, 0).unwrap();
                         let end = Local.timestamp_opt(p.endUTC, 0).unwrap();
-                        let max = Local.timestamp_opt(p.maxUTC, 0).unwrap();
+                        let _max = Local.timestamp_opt(p.maxUTC, 0).unwrap();
                         result.push(format!(
                             "{} 过境：起始 {}，最高仰角 {:.1}°，结束 {}，持续 {} 秒",
                             sat.satname,
@@ -169,9 +178,14 @@ pub fn query_satellite(name: Option<String>) -> Vec<String> {
 }
 
 fn find_alias_match(query: &str) -> Option<String> {
-    use crate::satellites::SATELLITE_ALIASES;
+    use super::satellites::SATELLITE_ALIASES;
     for (key, aliases) in SATELLITE_ALIASES.iter() {
-        if key.eq_ignore_ascii_case(query) || aliases.iter().any(|a| a.eq_ignore_ascii_case(query)) {
+        // if key.eq_ignore_ascii_case(query) || aliases.iter().any(|a| a.eq_ignore_ascii_case(query)) {
+        //     return Some(key.clone());
+        // }
+        let norm_query = sat_name_normalize(query);
+        if sat_name_normalize(key) == norm_query||
+           aliases.iter().any(|a| sat_name_normalize(&a) == norm_query) {
             return Some(key.clone());
         }
     }

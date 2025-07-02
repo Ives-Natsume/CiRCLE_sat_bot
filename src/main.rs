@@ -5,10 +5,8 @@ mod logger;
 mod msg_sys;
 mod response;
 mod config;
-mod satellites;
-mod sat_pass_predict;
+mod pass_query;
 use sat_status::amsat_parser;
-use sat_pass_predict::sat_pass_predict;
 use msg_sys::group_chat::message_handler;
 use std::sync::Arc;
 use tokio::{
@@ -34,7 +32,7 @@ async fn main() -> anyhow::Result<()> {
 
     let config = config::load_config("config.json");
     sat_status::amsat_parser::run_amsat_module(&config).await?;
-    task_manager::scheduled_tasks::start_scheduled_amsat_module(&config);
+    task_manager::scheduled_tasks::start_scheduled_module(&config);
 
     let url = format!("{}/_events", config.bot_config.url);
     let mut client = ClientBuilder::for_url(url.as_str())?

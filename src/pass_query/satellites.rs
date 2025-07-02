@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use lazy_static::lazy_static;
 
+#[allow(unused)]
 pub struct SatelliteInfo {
     pub id: u32,
     pub aliases: Vec<String>,
@@ -28,11 +29,11 @@ lazy_static! {
         );
 
         map.insert(
-            "ISS-FM".to_string(),
+            "ISS".to_string(),
             SatelliteInfo {
                 id: 25544,
                 aliases: vec![
-                    "issfm".to_string(), "ISSFM".to_string(), "iss voice".to_string(), "iss-fm".to_string(),
+                    "iss".to_string(), "ISSFM".to_string(), "iss voice".to_string(), "iss-fm".to_string(),
                     "iss fm".to_string(), "iss".to_string(), "ariss".to_string(), "ariss fm".to_string(),
                     "ariss voice".to_string(), "zarya".to_string(), "iss zarya".to_string()
                 ],

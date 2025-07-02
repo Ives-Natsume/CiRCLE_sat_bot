@@ -29,7 +29,7 @@ impl SatelliteName {
     }
 }
 
-fn sat_name_normalize(s: &str) -> String {
+pub fn sat_name_normalize(s: &str) -> String {
     s.chars()
         .filter(|c| c.is_alphanumeric()) // left all alphanumeric characters
         .map(|c| c.to_ascii_uppercase()) // convert to uppercase
@@ -69,7 +69,7 @@ pub fn look_up_sat_status_from_json(
     }
     
     if found_sats.is_empty() {
-        ApiResponse::error(format!("No satellites found matching the query: {}", sat_name))
+        ApiResponse::error(format!("Rinko不知道{}是什么喵", sat_name))
     } else {
         ApiResponse::ok(found_sats)
     }
@@ -129,7 +129,7 @@ fn format_satellite_status(
     let mut result: Vec<String> = Vec::new();
     
     if let Some(name) = sat.get("name").and_then(|n| n.as_str()) {
-        result.push(format!("{}:", name));
+        result.push(format!("{}吗，我看看...", name));
 
         // handle status
         if let Some(status_array) = sat.get("status").and_then(|s| s.as_array()) {
@@ -138,8 +138,7 @@ fn format_satellite_status(
             let mut timeblock_status = Vec::new();
 
             for (idx, subdata) in status_array.iter().enumerate() {
-                // only process the first 18 time blocks
-                if idx >= 18 {
+                if idx >= 24 {
                     break;
                 }
                 if let Some(reports) = subdata.as_array() {
@@ -158,13 +157,13 @@ fn format_satellite_status(
                             let current_houer = current_time.hour() as usize;
                             let time_passed = current_houer % 2 + idx * 2;
                             timeblock_status.push(
-                                format!("Report Time: about {}h ago", time_passed)
+                                format!("大约{}小时以前有{}个{}报告喵", time_passed, report_count, desc)
                             );
-                            timeblock_status.push(
-                                format!("{} ({} reports)", 
-                                    desc, report_count
-                                )
-                            );
+                            // timeblock_status.push(
+                            //     format!("{} ({} reports)", 
+                            //         desc, report_count
+                            //     )
+                            // );
                             break;
                         }
                     }
@@ -172,13 +171,13 @@ fn format_satellite_status(
             }
 
             if has_valid_status {
-                result.push("Status:".to_string());
+                //result.push("Status:".to_string());
                 result.extend(timeblock_status);
             } else {
-                result.push("Status: No reports for last one and half days".to_string());
+                result.push("过去两天都没人报告喵".to_string());
             }
         } else {
-            result.push("Status: Unknown - no status data".to_string());
+            result.push("Rinko不知道喵~".to_string());
             tracing::warn!("No status data for satellite '{}'", name);
         }
     }
