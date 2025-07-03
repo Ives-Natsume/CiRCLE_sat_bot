@@ -5,6 +5,7 @@ use crate::{
     response::ApiResponse,
     config
 };
+use url;
 use crate::msg_sys::prelude::*;
 
 const ENDPOINT_URL: &str = "http://localhost:3300/send_group_msg";
@@ -51,7 +52,92 @@ pub async fn send_group_msg(
     }
 }
 
-async fn router(
+async fn parse_file_path(
+    file_path: &str,
+) -> Result<String, String> {
+    let trimmed_path = file_path.trim_start_matches(r"\\?\");
+    let path = std::path::PathBuf::from(trimmed_path);
+    match url::Url::from_file_path(&path) {
+        Ok(url) => {
+            let url_path = url.to_string();
+            
+            Ok(url_path)
+        }
+        Err(_) => Err(format!("Failed to convert path to URL: {:?}", path)),
+    }
+}
+
+async fn send_group_msg_with_photo(
+    group_id: u64,
+) {
+    // let latest_img_path = match crate::solar_image::get_image::get_latest_image().await {
+    //     Ok(path) => path,
+    //     Err(e) => {
+    //         tracing::error!("Failed to get latest solar image: {}", e);
+    //         let response = ApiResponse {
+    //             success: false,
+    //             data: None,
+    //             message: Some("出错了喵...".to_string()),
+    //         };
+    //         send_group_msg(response, group_id).await;
+    //         return;
+    //     }
+    // };
+
+    // let url_path = match parse_file_path(&latest_img_path).await {
+    //     Ok(path) => path,
+    //     Err(e) => {
+    //         tracing::error!("Failed to parse file path: {}", e);
+    //         let response = ApiResponse {
+    //             success: false,
+    //             data: None,
+    //             message: Some("图片路径解析失败喵...".to_string()),
+    //         };
+    //         send_group_msg(response, group_id).await;
+    //         return;
+    //     }
+    // };
+
+    // tracing::info!("Sending group message with photo: {}", url_path);
+
+    let msg_body = serde_json::json!({
+        "group_id": group_id,
+        "message": [
+            {
+                "type": "image",
+                "data": {
+                    "file": "https://www.hamqsl.com/solarn0nbh.php?image=random".to_string(),
+                }
+            }
+        ]
+    });
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post(ENDPOINT_URL)
+        .json(&msg_body)
+        .send()
+        .await;
+
+    match response {
+        Ok(res) => {
+            let status = res.status();
+            let body = res.text().await.unwrap_or_else(|_| "<Failed to read body>".to_string());
+            tracing::info!("Group message with photo sent. Status: {}, Response: {}", status, body);
+        }
+        Err(err) => {
+            tracing::error!("Failed to send group message with photo: {}", err);
+            let response = ApiResponse {
+                success: false,
+                data: None,
+                message: Some("发送图片失败喵...".to_string()),
+            };
+            send_group_msg(response, group_id).await;
+        }
+    }
+}
+
+async fn command_router(
     payload: &MessageEvent,
     config: &config::Config,
 ) {
@@ -103,6 +189,10 @@ async fn router(
                     }
                 }
             },
+            "sun" | "s" => {
+                send_group_msg_with_photo(payload.group_id).await;
+                return;
+            },
             "about" => {
                 response.success = true;
                 response.data = config.backend_config.about.clone();
@@ -117,6 +207,71 @@ async fn router(
 
     let group_id = payload.group_id;
     send_group_msg(response, group_id).await;
+}
+
+async fn joke(payload: &MessageEvent, _config: &config::Config) {
+    let group_id = payload.group_id;
+    for elem in &payload.message {
+        if let MessageElement::Text { text } = elem {
+            let text = query::sat_query::sat_name_normalize(text);
+            if text.contains("咕咕嘎嘎") || text.contains("gugugaga") {
+                let response = ApiResponse {
+                    success: true,
+                    data: Some(vec!["咕咕嘎嘎！".to_string()]),
+                    message: None,
+                };
+                send_group_msg(response, group_id).await;
+            }
+            if text.contains("rinko") || text.contains("rinrin") {
+                let response = ApiResponse {
+                    success: true,
+                    data: Some(vec!["Rinko在这里喵~".to_string()]),
+                    message: None,
+                };
+                send_group_msg(response, group_id).await;
+            }
+            if text.contains("ciallo") {
+                let response = ApiResponse {
+                    success: true,
+                    data: Some(vec!["Ciallo~(∠・ω< )⌒★".to_string()]),
+                    message: None,
+                };
+                send_group_msg(response, group_id).await;
+            }
+            if text.contains("circle") {
+                let response = ApiResponse {
+                    success: true,
+                    data: Some(vec!["最喜欢大家了~".to_string()]),
+                    message: None,
+                };
+                send_group_msg(response, group_id).await;
+            }
+            if text.contains("css") {
+                let response = ApiResponse {
+                    success: true,
+                    data: Some(vec!["又想诈骗".to_string()]),
+                    message: None,
+                };
+                send_group_msg(response, group_id).await;
+            }
+            if text.contains("ako") || text.contains("ykn") || text.contains("roselia") || text.contains("sayo") || text.contains("lisa") {
+                let response = ApiResponse {
+                    success: true,
+                    data: Some(vec!["Rinrin Bloom".to_string()]),
+                    message: None,
+                };
+                send_group_msg(response, group_id).await;
+            }
+            if text == query::sat_query::sat_name_normalize("Rinko在这里喵~") || text == query::sat_query::sat_name_normalize("Rinrin Bloom") {
+                let response = ApiResponse {
+                    success: true,
+                    data: Some(vec!["不许复读😡".to_string()]),
+                    message: None,
+                };
+                send_group_msg(response, group_id).await;
+            }
+        }
+    }
 }
 
 async fn query_handler(
@@ -176,23 +331,48 @@ pub async fn message_handler(
     message_raw_text: String,
     config: &config::Config,
 ) {
-    match parse_message_event(&message_raw_text) {
-        Ok(payload) => {
-            // check if message contains AT element
-            if payload.message.iter().any(|elem| {
-                matches!(elem, MessageElement::At { qq, .. } if *qq == config.bot_config.qq_id)
-            }) {
-                router(&payload, &config).await;
+    if let Ok(payload) = parse_message_event(&message_raw_text) {
+        for elem in &payload.message {
+            match elem {
+                MessageElement::Text { text } => {
+                    text_router(text, &payload, &config).await;
+                }
+                MessageElement::At { qq, .. } => {
+                    if *qq == config.bot_config.qq_id {
+                        command_router(&payload, &config).await;
+                    }
+                }
+                _ => {}
             }
-            else if payload.message.iter().any(|elem| {
-                matches!(elem, MessageElement::Text { text } if text.starts_with("/q") || text.starts_with("/h") || text.starts_with("/p") || text.starts_with("/a")) &&
-                !matches!(elem, MessageElement::At { .. })
-            }){
-                router(&payload, &config).await;
-            }
-        },
-        Err(_) => {
-            //tracing::error!("Failed to parse message event: {}", e);
         }
-    };
+    }
+}
+
+async fn text_router(text: &String, payload: &MessageEvent, config: &config::Config) {
+    if text.starts_with("/") {
+        if text.contains("ciallo") ||
+            text.contains("gugugaga") ||
+            text.contains("咕咕嘎嘎") ||
+            text.contains("css") {
+            joke(&payload, config).await;
+            return;
+        }
+    }
+
+    if text.contains("circle") ||
+        text.contains("rinrin") ||
+        text.contains("rinko") ||
+        text.contains("ako") ||
+        text.contains("ykn") ||
+        text.contains("sayo") ||
+        text.contains("lisa") ||
+        text.contains("roselia") {
+        joke(&payload, config).await;
+        return;
+    }
+
+    if text.starts_with("/q") || text.starts_with("/h") || text.starts_with("/p") || text.starts_with("/a") || text.starts_with("/s") {
+        command_router(&payload, config).await;
+        return;
+    }
 }

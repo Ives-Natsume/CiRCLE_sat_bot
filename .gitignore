@@ -1,4 +1,5 @@
 /logs
 /target
+/pic
 *.html
 *.json
