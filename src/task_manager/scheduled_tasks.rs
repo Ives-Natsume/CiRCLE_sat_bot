@@ -71,6 +71,27 @@ pub fn start_scheduled_module(config: &Config) {
         }
     });
 
+    let _pass_notify_task = tokio::spawn(async move {
+        use tokio::time::{sleep, Duration as TokioDuration};
+        use crate::msg_sys::response::send_group_msg;
+        use crate::msg_sys::qq_structs::GroupMessageResponse;
+    
+        const GROUP_ID: i64 = 965954401;
+    
+        loop {
+            let results = crate::pass_query::sat_pass_notify::check_upcoming_passes().await;
+    
+            for msg in results {
+                tracing::info!("Sending scheduled task message: {}", msg);
+    
+                let mut response = GroupMessageResponse::default();
+                response.message = Some(msg);
+                send_group_msg(response, GROUP_ID).await;
+            }
+            sleep(TokioDuration::from_secs(60)).await;
+        }
+    });
+
     // let _get_solar_image = tokio::spawn(async move {
     //     const SOLAR_IMAGE_UPDATE_INTERVAL: Duration = Duration::from_secs(60 * 60 * 1); // 1 hours
 
