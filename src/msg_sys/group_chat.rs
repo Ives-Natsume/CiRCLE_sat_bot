@@ -92,15 +92,29 @@ async fn router(
                     return;
                 }
                 if args.is_empty() {
-                    response.message = Some("Please provide a satellite name to query pass data.".to_string());
+                    response.message = Some("没有卫星名无法查询喵！".to_string());
                 } else {
                     let query_response = crate::pass_query::sat_pass_predict::query_satellite(Some(args));
                     if query_response.is_empty() {
-                        response.message = Some("No pass data found for the provided satellite name.".to_string());
+                        response.message = Some("没有找到这个名字的卫星喵...".to_string());
                     } else {
                         response.success = true;
                         response.data = Some(query_response);
                     }
+                }
+            },
+            "all" | "a" => {
+                if payload.group_id != 965954401 {
+                    response.message = Some("这是只有CiRCLE成员才能使用的魔法喵~".to_string());
+                    send_group_msg(response, payload.group_id).await;
+                    return;
+                }
+                let query_response = crate::pass_query::all_pass_notify::get_all_sats_pass().await;
+                if query_response.is_empty() {
+                    response.message = Some("没有找到卫星经过的信息呢，是哪出错了呢？QWQ".to_string());
+                } else {
+                    response.success = true;
+                    response.data = Some(query_response);
                 }
             },
             "about" => {
