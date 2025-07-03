@@ -1,6 +1,6 @@
 use chrono::{Utc, TimeZone, Duration, Timelike};
 use std::{collections::HashMap, fs};
-use crate::sat_pass_predict::SatPassData;
+use super::sat_pass_predict::SatPassData;
 
 const CACHE_FILE: &str = "sat_pass_cache.json";
 
