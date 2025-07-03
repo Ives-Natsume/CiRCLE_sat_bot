@@ -6,6 +6,7 @@ mod msg_sys;
 mod response;
 mod config;
 mod pass_query;
+mod solar_image;
 use sat_status::amsat_parser;
 use msg_sys::group_chat::message_handler;
 use std::sync::{Arc, Mutex};

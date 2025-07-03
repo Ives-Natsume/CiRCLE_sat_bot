@@ -32,7 +32,7 @@ impl SatelliteName {
 pub fn sat_name_normalize(s: &str) -> String {
     s.chars()
         .filter(|c| c.is_alphanumeric()) // left all alphanumeric characters
-        .map(|c| c.to_ascii_uppercase()) // convert to uppercase
+        .map(|c| c.to_ascii_lowercase()) // convert to lowercase
         .collect()
 }
 
