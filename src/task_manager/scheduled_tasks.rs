@@ -89,10 +89,12 @@ pub fn start_scheduled_module(config: &Config) {
                 };
                 response.message = Some(msg);
                 
-                if let Some(group_id) = special_group_id {
-                    send_group_msg(response, group_id).await;
+                if let Some(group_ids) = &special_group_id {
+                    for group_id in group_ids {
+                        send_group_msg(response.clone(), *group_id).await;
+                    }
                 } else {
-
+                    tracing::warn!("No special group ID configured for pass notifications.");
                 }
             }
             sleep(TokioDuration::from_secs(60)).await;

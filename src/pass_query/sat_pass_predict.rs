@@ -29,13 +29,13 @@ pub struct SatPassData {
 pub async fn update_sat_pass_cache(config: &Config) -> anyhow::Result<()> {
     let client = Client::new();
     let mut cache: HashMap<String, SatPassData> = HashMap::new();
-    let conf = config.pass_api_conf.clone();
+    let conf = config.pass_api_config.clone();
 
     for (name, sat_info) in SATELLITE_LIST.iter() {
         let url = format!(
             //"https://api.n2yo.com/rest/v1/satellite/radiopasses/{}/{}/{}/{}/{}/{}/&apiKey={}",
             "{}/{}/{}/{}/{}/{}/{}&apikey={}",
-            config.pass_api_conf.host, sat_info.id, conf.lat, conf.lon, conf.alt, conf.day, conf.min_elevation, conf.api_key
+            conf.host, sat_info.id, conf.lat, conf.lon, conf.alt, conf.day, conf.min_elevation, conf.api_key
         );
 
         //请求api

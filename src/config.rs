@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct Config {
     pub bot_config: BotConfig,
     pub backend_config: BackendConfig,
-    pub pass_api_conf: PassApiConfig,
+    pub pass_api_config: PassApiConfig,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -20,7 +20,7 @@ pub struct BackendConfig {
     pub help: Option<Vec<String>>,
     pub timeout: u64,
     pub concurrent_limit: u64,
-    pub special_group_id: Option<u64>,
+    pub special_group_id: Option<Vec<u64>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -126,8 +126,8 @@ static I18N_MAP: Lazy<HashMap<(&'static str, &'static str), &'static str>> = Laz
     m.insert(("Conflicting Reports", "en"), "Conflicting reports");
     m.insert(("Conflicting Reports", "cn"), "报告有冲突");
 
-    m.insert(("ISS Crew (Voice) Active", "en"), "ISS Crew (Voice) Active");
-    m.insert(("ISS Crew (Voice) Active", "cn"), "乘组语音活跃中");
+    m.insert(("ISS Crew(Voice) Active", "en"), "ISS Crew(Voice) Active");
+    m.insert(("ISS Crew(Voice) Active", "cn"), "乘组语音活跃中");
 
     m.insert(("Unknown Status", "en"), "Unknown Status");
     m.insert(("Unknown Status", "cn"), "罕见的未知状态");

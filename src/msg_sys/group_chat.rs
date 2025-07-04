@@ -52,6 +52,7 @@ pub async fn send_group_msg(
     }
 }
 
+#[allow(dead_code)]
 async fn parse_file_path(
     file_path: &str,
 ) -> Result<String, String> {
