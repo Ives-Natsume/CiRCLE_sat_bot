@@ -37,34 +37,33 @@ pub async fn get_all_sats_pass() -> Vec<String> {
             let minutes = remaining / 60;
             let seconds = remaining % 60;
             active_passes.push(format!(
-                "{}:\n过境中，剩余 {}分{}秒",
+                "{} | 过境中 | 剩{}m{}s",
                 sat.satname, minutes, seconds
             ));
         } else if let Some(p) = sat
-        .passes
-        .iter()
-        .filter(|p| p.startUTC > now)
-        .min_by_key(|p| p.startUTC)
-    {
-        let countdown = p.startUTC - now;
-        let hours = countdown / 3600;
-        let minutes = (countdown % 3600) / 60;
+            .passes
+            .iter()
+            .filter(|p| p.startUTC > now)
+            .min_by_key(|p| p.startUTC)
+        {
+            let countdown = p.startUTC - now;
+            let hours = countdown / 3600;
+            let minutes = (countdown % 3600) / 60;
     
-        let utc_time = Utc.timestamp_opt(p.startUTC, 0).single().unwrap_or(Utc::now());
-        let bjt_time = utc_time + Duration::hours(8);
-        let (is_pm, hour12) = bjt_time.hour12();
-        let am_pm = if is_pm { "下午" } else { "上午" };
-        let bjt_formatted = format!("{}{}点{:02}分", am_pm, hour12, bjt_time.minute());
+            let utc_time = Utc.timestamp_opt(p.startUTC, 0).single().unwrap_or(Utc::now());
+            let bjt_time = utc_time + Duration::hours(8);
+            let bjt_formatted = format!("{:02}:{:02}", bjt_time.hour(), bjt_time.minute());
     
-        upcoming_passes.push((
-            countdown,
-            format!(
-                "{}:\n{}时{}分后，{}过境",
-                sat.satname, hours, minutes, bjt_formatted
-            ),
-        ));
+            upcoming_passes.push((
+                countdown,
+                format!(
+                    "{} | {}过境 | {}h{}m后",
+                    sat.satname, bjt_formatted, hours, minutes
+                ),
+            ));
+        }
     }
-}
+    
 
     upcoming_passes.sort_by_key(|(countdown, _)| *countdown);
 
