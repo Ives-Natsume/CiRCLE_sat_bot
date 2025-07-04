@@ -1,6 +1,11 @@
 use std::time::Duration;
-use crate::{amsat_parser::run_amsat_module, response::ApiResponse};
-use crate::config::Config;
+use crate::{
+    amsat_parser::run_amsat_module,
+    response::ApiResponse,
+    pass_query,
+    config::Config,
+    msg_sys,
+};
 use chrono::{self, Utc, Timelike};
 use std::path::Path;
 use tokio::fs;
@@ -63,7 +68,7 @@ pub fn start_scheduled_module(config: &Config) {
 
         loop {
             tracing::info!("Starting satellite pass data update");
-            match crate::pass_query::sat_pass_predict::update_sat_pass_cache(&config_cp2).await {
+            match pass_query::sat_pass_predict::update_sat_pass_cache(&config_cp2).await {
                 Ok(_) => tracing::info!("Satellite pass data updated successfully"),
                 Err(e) => tracing::error!("Error updating satellite pass data: {}", e),
             }
@@ -72,12 +77,11 @@ pub fn start_scheduled_module(config: &Config) {
     });
 
     let _expired_cache_clean = tokio::spawn(async {
-        use crate::pass_query::sat_cache_clean::clean_expired_passes;
         loop {
-            match tokio::task::spawn_blocking(clean_expired_passes).await {
-                Ok(Ok(())) => {},
-                Ok(Err(e)) => tracing::error!("清理缓存失败: {:?}", e),
-                Err(e) => tracing::error!("spawn_blocking 执行失败: {:?}", e),
+            tracing::info!("Starting expired cache clean");
+            match pass_query::sat_cache_clean::clean_expired_cache().await {
+                Ok(_) => tracing::info!("Expired cache cleaned successfully"),
+                Err(e) => tracing::error!("Error cleaning expired cache: {}", e),
             }
             tokio::time::sleep(std::time::Duration::from_secs(60)).await;
         }
@@ -85,13 +89,10 @@ pub fn start_scheduled_module(config: &Config) {
 
     let config_cp3 = config.clone();
     let _pass_notify_task = tokio::spawn(async move {
-        use tokio::time::{sleep, Duration as TokioDuration};
-        use crate::msg_sys::group_chat::send_group_msg;
-    
         let special_group_id = config_cp3.backend_config.special_group_id.clone();
     
         loop {
-            let results = crate::pass_query::sat_pass_notify::check_upcoming_passes().await;
+            let results = pass_query::sat_pass_notify::check_upcoming_passes().await;
     
             for msg in results {
                 let mut response = ApiResponse {
@@ -103,13 +104,13 @@ pub fn start_scheduled_module(config: &Config) {
                 
                 if let Some(group_ids) = &special_group_id {
                     for group_id in group_ids {
-                        send_group_msg(response.clone(), *group_id).await;
+                        msg_sys::group_chat::send_group_msg(response.clone(), *group_id).await;
                     }
                 } else {
                     tracing::warn!("No special group ID configured for pass notifications.");
                 }
             }
-            sleep(TokioDuration::from_secs(60)).await;
+            tokio::time::sleep(Duration::from_secs(60)).await;
         }
     });
 

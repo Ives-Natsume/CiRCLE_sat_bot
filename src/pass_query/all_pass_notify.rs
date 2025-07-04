@@ -45,7 +45,7 @@ pub async fn get_all_sats_pass() -> Vec<String> {
             passes.push((
                 countdown,
                 format!(
-                    "{}：{}分{}秒后，{}过境",
+                    "{}: {}分{}秒后，{}过境",
                     sat.satname, minutes, seconds, bjt_formatted
                 ),
             ));

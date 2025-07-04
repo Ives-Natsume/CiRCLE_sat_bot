@@ -4,7 +4,7 @@ use super::sat_pass_predict::SatPassData;
 
 const CACHE_FILE: &str = "sat_pass_cache.json";
 
-pub fn clean_expired_cache() -> anyhow::Result<()> {
+pub async fn clean_expired_cache() -> anyhow::Result<()> {
     let content = match fs::read_to_string(CACHE_FILE) {
         Ok(c) => c,
         Err(e) => {
@@ -22,7 +22,7 @@ pub fn clean_expired_cache() -> anyhow::Result<()> {
     };
 
     let now = Utc::now().timestamp();
-    let mut expired_found = false;
+    let mut expired_confirm = false;
 
     for sat_data in data.values_mut() {
         let original_len = sat_data.passes.len();
