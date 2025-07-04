@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct Config {
     pub bot_config: BotConfig,
     pub backend_config: BackendConfig,
-    pub n2yo_config: N2yoConfig,
+    pub pass_api_conf: PassApiConfig,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -20,10 +20,12 @@ pub struct BackendConfig {
     pub help: Option<Vec<String>>,
     pub timeout: u64,
     pub concurrent_limit: u64,
+    pub special_group_id: Option<u64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct N2yoConfig {
+pub struct PassApiConfig {
+    pub host: String,
     pub api_key: String,
     pub lat: f64,
     pub lon: f64,
