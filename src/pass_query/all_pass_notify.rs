@@ -1,4 +1,4 @@
-use chrono::{Utc, TimeZone, Duration, Timelike, Local};
+use chrono::{Utc, TimeZone, Duration, Timelike};
 use std::{collections::HashMap};
 use super::sat_pass_predict::SatPassData;
 use tokio::fs;
@@ -37,7 +37,7 @@ pub async fn get_all_sats_pass() -> Vec<String> {
             let minutes = remaining / 60;
             let seconds = remaining % 60;
             active_passes.push(format!(
-                "{}: 过境中，剩余 {}分{}秒",
+                "{}:\n过境中，剩余 {}分{}秒",
                 sat.satname, minutes, seconds
             ));
         } else if let Some(p) = sat
@@ -59,7 +59,7 @@ pub async fn get_all_sats_pass() -> Vec<String> {
         upcoming_passes.push((
             countdown,
             format!(
-                "{}: {}时{}分后，{}过境",
+                "{}:\n{}时{}分后，{}过境",
                 sat.satname, hours, minutes, bjt_formatted
             ),
         ));
