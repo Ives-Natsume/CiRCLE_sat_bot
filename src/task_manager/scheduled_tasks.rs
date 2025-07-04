@@ -83,7 +83,7 @@ pub fn start_scheduled_module(config: &Config) {
                 Ok(_) => tracing::info!("Expired cache cleaned successfully"),
                 Err(e) => tracing::error!("Error cleaning expired cache: {}", e),
             }
-            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(60 * 60)).await; // 1h is enough maybe
         }
     });
 
