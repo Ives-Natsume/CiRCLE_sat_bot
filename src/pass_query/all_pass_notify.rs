@@ -1,11 +1,12 @@
-use chrono::{Utc, TimeZone, Duration, Timelike};
-use std::{collections::HashMap, fs};
+use chrono::{Utc, TimeZone, Duration, Timelike, Local};
+use std::{collections::HashMap};
 use super::sat_pass_predict::SatPassData;
+use tokio::fs;
 
 const CACHE_FILE: &str = "sat_pass_cache.json";
 
 pub async fn get_all_sats_pass() -> Vec<String> {
-    let content = match fs::read_to_string(CACHE_FILE) {
+    let content = match fs::read_to_string(CACHE_FILE).await {
         Ok(c) => c,
         Err(e) => {
             tracing::error!("读取缓存文件失败: {}", e);
@@ -22,27 +23,40 @@ pub async fn get_all_sats_pass() -> Vec<String> {
     };
 
     let now = Utc::now().timestamp();
-    let mut passes = Vec::new();
+
+    let mut active_passes = Vec::new();
+    let mut upcoming_passes: Vec<(i64, String)> = Vec::new();
 
     for sat in data.values() {
-        if let Some(next_pass) = sat
+        if let Some(p) = sat
+            .passes
+            .iter()
+            .find(|p| p.startUTC <= now && p.endUTC > now)
+        {
+            let remaining = p.endUTC - now;
+            let minutes = remaining / 60;
+            let seconds = remaining % 60;
+            active_passes.push(format!(
+                "{}: 过境中，剩余 {}分{}秒",
+                sat.satname, minutes, seconds
+            ));
+        } else if let Some(p) = sat
             .passes
             .iter()
             .filter(|p| p.startUTC > now)
             .min_by_key(|p| p.startUTC)
         {
-            let countdown = next_pass.startUTC - now;
+            let countdown = p.startUTC - now;
             let minutes = countdown / 60;
             let seconds = countdown % 60;
 
-            let utc_time = Utc.timestamp_opt(next_pass.startUTC, 0).single().unwrap_or(Utc::now());
+            let utc_time = Utc.timestamp_opt(p.startUTC, 0).single().unwrap_or(Utc::now());
             let bjt_time = utc_time + Duration::hours(8);
             let (is_pm, hour12) = bjt_time.hour12();
             let am_pm = if is_pm { "下午" } else { "上午" };
+            let bjt_formatted = format!("{}{}点{:02}分", am_pm, hour12, bjt_time.minute());
 
-            let bjt_formatted = format!("{}{}点{}分", am_pm, hour12, bjt_time.minute());
-
-            passes.push((
+            upcoming_passes.push((
                 countdown,
                 format!(
                     "{}: {}分{}秒后，{}过境",
@@ -51,13 +65,15 @@ pub async fn get_all_sats_pass() -> Vec<String> {
             ));
         }
     }
-    passes.sort_by_key(|(countdown, _)| *countdown);
 
-    if passes.is_empty() {
+    upcoming_passes.sort_by_key(|(countdown, _)| *countdown);
+
+    if active_passes.is_empty() && upcoming_passes.is_empty() {
         Vec::new()
     } else {
         let mut result = vec!["[预告]".to_string()];
-        result.extend(passes.into_iter().map(|(_, msg)| msg + "；"));
+        result.extend(active_passes.into_iter());
+        result.extend(upcoming_passes.into_iter().map(|(_, msg)| msg));
         result
     }
 }
