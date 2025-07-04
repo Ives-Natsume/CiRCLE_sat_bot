@@ -38,7 +38,7 @@ pub async fn update_sat_pass_cache(config: &Config) -> anyhow::Result<()> {
             conf.host, sat_info.id, conf.lat, conf.lon, conf.alt, conf.day, conf.min_elevation, conf.api_key
         );
 
-        // 请求api
+        // API request
         match client.get(&url).send().await {
             Ok(response) => match response.text().await {
                 Ok(body) => match serde_json::from_str::<serde_json::Value>(&body) {
@@ -91,7 +91,7 @@ pub async fn update_sat_pass_cache(config: &Config) -> anyhow::Result<()> {
         }
     }
 
-    // 缓存api数据并推送缓存时间
+    // API data caching and logging
     let serialized = serde_json::to_string_pretty(&cache)?;
     fs::write(CACHE_FILE, serialized)?;
 
@@ -102,7 +102,7 @@ pub async fn update_sat_pass_cache(config: &Config) -> anyhow::Result<()> {
     Ok(())
 }
 
-// 缓存过期判定
+// Cache out of date adjustment
 fn _need_update_cache() -> bool {
     if !Path::new(CACHE_FILE).exists() {
         return true;
@@ -166,7 +166,9 @@ pub fn query_satellite(name: Option<String>) -> Vec<String> {
                 result.push("未识别的卫星名".to_string());
             }
         }
-        None
+        None => {
+            result.push("请提供卫星名称进行查询".to_string());
+        }
     }
 
     result
