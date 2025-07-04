@@ -147,8 +147,10 @@ pub fn query_satellite(name: Option<String>) -> Vec<String> {
             if let Some(key) = match_name {
                 if let Some(sat) = data.get(&key) {
                     if let Some(p) = sat.passes.iter().find(|p| p.endUTC > now) {
-                        let start = Local.timestamp_opt(p.startUTC, 0).unwrap_or_else(|| Local.timestamp(0, 0));
-                        let end = Local.timestamp_opt(p.endUTC, 0).unwrap_or_else(|| Local.timestamp(0, 0));
+                        let start = Local.timestamp_opt(p.startUTC, 0)
+                            .unwrap();
+                        let end = Local.timestamp_opt(p.endUTC, 0)
+                            .unwrap();
                         result.push(format!(
                             "{} 过境：起始 {}，最高仰角 {:.1}°，结束 {}",
                             sat.satname,
@@ -157,17 +159,17 @@ pub fn query_satellite(name: Option<String>) -> Vec<String> {
                             end.format("%m-%d %H:%M")
                         ));
                     } else {
-                        result.push("无即将过境信息".to_string());
+                        result.push("没有即将过境的信息呢".to_string());
                     }
                 } else {
-                    result.push("无对应卫星缓存数据".to_string());
+                    result.push("缓存里没有它的数据呢".to_string());
                 }
             } else {
-                result.push("未识别的卫星名".to_string());
+                result.push("这是什么？能吃吗".to_string());
             }
         }
         None => {
-            result.push("请提供卫星名称进行查询".to_string());
+            result.push("Rinko不知道你要查什么喵...".to_string());
         }
     }
 

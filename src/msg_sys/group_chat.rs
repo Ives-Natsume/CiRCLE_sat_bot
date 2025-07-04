@@ -173,17 +173,17 @@ async fn command_router(
                 response.data = config.backend_config.help.clone();
             },
             "pass" | "p" => {
-                if payload.group_id != 965954401 {
+                if !config.backend_config.special_group_id.as_ref().map_or(false, |ids| ids.contains(&payload.group_id)) {
                     response.message = Some("这是只有CiRCLE成员才能使用的魔法喵~".to_string());
                     send_group_msg(response, payload.group_id).await;
                     return;
                 }
                 if args.is_empty() {
-                    response.message = Some("没有卫星名无法查询喵！".to_string());
+                    response.message = Some("告诉我卫星名称喵！".to_string());
                 } else {
                     let query_response = crate::pass_query::sat_pass_predict::query_satellite(Some(args));
                     if query_response.is_empty() {
-                        response.message = Some("没有找到这个名字的卫星喵...".to_string());
+                        response.message = Some("找不到这个卫星喵...".to_string());
                     } else {
                         response.success = true;
                         response.data = Some(query_response);
@@ -191,14 +191,14 @@ async fn command_router(
                 }
             },
             "all" | "a" => {
-                if payload.group_id != 965954401 {
+                if !config.backend_config.special_group_id.as_ref().map_or(false, |ids| ids.contains(&payload.group_id)) {
                     response.message = Some("这是只有CiRCLE成员才能使用的魔法喵~".to_string());
                     send_group_msg(response, payload.group_id).await;
                     return;
                 }
                 let query_response = crate::pass_query::all_pass_notify::get_all_sats_pass().await;
                 if query_response.is_empty() {
-                    response.message = Some("没有找到卫星经过的信息呢，是哪出错了呢？QWQ".to_string());
+                    response.message = Some("没有找到卫星经过的信息呢...".to_string());
                 } else {
                     response.success = true;
                     response.data = Some(query_response);
@@ -228,62 +228,67 @@ async fn joke(payload: &MessageEvent, _config: &config::Config) {
     let group_id = payload.group_id;
     for elem in &payload.message {
         if let MessageElement::Text { text } = elem {
-            let text = query::sat_query::sat_name_normalize(text);
-            if text.contains("咕咕嘎嘎") || text.contains("gugugaga") {
-                let response = ApiResponse {
-                    success: true,
-                    data: Some(vec!["咕咕嘎嘎！".to_string()]),
-                    message: None,
-                };
-                send_group_msg(response, group_id).await;
+            if text.starts_with("/") {
+                let text = query::sat_query::sat_name_normalize(text);
+                if text.contains("咕咕嘎嘎") || text.contains("gugugaga") {
+                    let response = ApiResponse {
+                        success: true,
+                        data: Some(vec!["咕咕嘎嘎！".to_string()]),
+                        message: None,
+                    };
+                    send_group_msg(response, group_id).await;
+                }
+                if text.contains("css") {
+                    let response = ApiResponse {
+                        success: true,
+                        data: Some(vec!["又想诈骗".to_string()]),
+                        message: None,
+                    };
+                    send_group_msg(response, group_id).await;
+                }
+                if text.contains("ciallo") {
+                    let response = ApiResponse {
+                        success: true,
+                        data: Some(vec!["Ciallo~(∠・ω< )⌒★".to_string()]),
+                        message: None,
+                    };
+                    send_group_msg(response, group_id).await;
+                }
             }
-            if text.contains("rinko") || text.contains("rinrin") {
-                let response = ApiResponse {
-                    success: true,
-                    data: Some(vec!["Rinko在这里喵~".to_string()]),
-                    message: None,
-                };
-                send_group_msg(response, group_id).await;
-            }
-            if text.contains("ciallo") {
-                let response = ApiResponse {
-                    success: true,
-                    data: Some(vec!["Ciallo~(∠・ω< )⌒★".to_string()]),
-                    message: None,
-                };
-                send_group_msg(response, group_id).await;
-            }
-            if text.contains("circle") {
-                let response = ApiResponse {
-                    success: true,
-                    data: Some(vec!["最喜欢大家了~".to_string()]),
-                    message: None,
-                };
-                send_group_msg(response, group_id).await;
-            }
-            if text.contains("css") {
-                let response = ApiResponse {
-                    success: true,
-                    data: Some(vec!["又想诈骗".to_string()]),
-                    message: None,
-                };
-                send_group_msg(response, group_id).await;
-            }
-            if text.contains("ako") || text.contains("ykn") || text.contains("roselia") || text.contains("sayo") || text.contains("lisa") {
-                let response = ApiResponse {
-                    success: true,
-                    data: Some(vec!["Rinrin Bloom".to_string()]),
-                    message: None,
-                };
-                send_group_msg(response, group_id).await;
-            }
-            if text == query::sat_query::sat_name_normalize("Rinko在这里喵~") || text == query::sat_query::sat_name_normalize("Rinrin Bloom") {
-                let response = ApiResponse {
-                    success: true,
-                    data: Some(vec!["不许复读😡".to_string()]),
-                    message: None,
-                };
-                send_group_msg(response, group_id).await;
+            else {
+                let text = query::sat_query::sat_name_normalize(text);
+                if text.contains("rinko") || text.contains("rinrin") {
+                    let response = ApiResponse {
+                        success: true,
+                        data: Some(vec!["Rinko在这里喵~".to_string()]),
+                        message: None,
+                    };
+                    send_group_msg(response, group_id).await;
+                }
+                if text.contains("circle") {
+                    let response = ApiResponse {
+                        success: true,
+                        data: Some(vec!["最喜欢大家了~".to_string()]),
+                        message: None,
+                    };
+                    send_group_msg(response, group_id).await;
+                }
+                if text.contains("ako") || text.contains("ykn") || text.contains("roselia") || text.contains("sayo") || text.contains("lisa") {
+                    let response = ApiResponse {
+                        success: true,
+                        data: Some(vec!["Rinrin Bloom".to_string()]),
+                        message: None,
+                    };
+                    send_group_msg(response, group_id).await;
+                }
+                if text == query::sat_query::sat_name_normalize("Rinko在这里喵~") || text == query::sat_query::sat_name_normalize("Rinrin Bloom") {
+                    let response = ApiResponse {
+                        success: true,
+                        data: Some(vec!["不许复读😡".to_string()]),
+                        message: None,
+                    };
+                    send_group_msg(response, group_id).await;
+                }
             }
         }
     }

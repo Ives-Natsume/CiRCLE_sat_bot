@@ -35,7 +35,7 @@ pub async fn check_upcoming_passes() -> Vec<String> {
                 let am_pm = if is_pm { "下午" } else { "上午" };
     
                 result.push(format!(
-                    "[提醒]: 卫星 {} 即将过境，预计时间为 {} UTC (北京时间{}{}点{:02}分)",
+                    "[提醒]:\n卫星 {} 即将过境，预计时间为 {} UTC (北京时间{}{}点{:02}分)",
                     sat.satname,
                     utc_time.format("%Y-%m-%d %H:%M:%S"),
                     am_pm,

@@ -98,21 +98,6 @@ use std::collections::HashMap;
 static I18N_MAP: Lazy<HashMap<(&'static str, &'static str), &'static str>> = Lazy::new(|| {
     let mut m = HashMap::new();
 
-    m.insert(("status_title", "en"), "Status:");
-    m.insert(("status_title", "cn"), "状态：");
-
-    m.insert(("no_reports", "en"), "No reports for last one and half days");
-    m.insert(("no_reports", "cn"), "最近amsat没人报告");
-
-    m.insert(("unknown_status", "en"), "Unknown Status");
-    m.insert(("unknown_status", "cn"), "希腊奶~");
-
-    m.insert(("no_data", "en"), "Status: Unknown\n- no status data");
-    m.insert(("no_data", "cn"), "没说");
-
-    m.insert(("not_found", "en"), "No satellites found matching the query: ");
-    m.insert(("not_found", "cn"), "amsat没有");
-
     // status translate
     m.insert(("Transponder/Repeater Active", "en"), "Transponder/Repeater active");
     m.insert(("Transponder/Repeater Active", "cn"), "转发器已开机");
