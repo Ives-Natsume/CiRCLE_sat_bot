@@ -71,7 +71,10 @@ SAUDISAT 1C 过境：起始 08-10 11:45，最高仰角 19.1°，结束 08-10 14:
 
 ### 卫星过境预测系统
 
-定时任务，每隔一定时间向N2YO发起api请求并解析存储为json文件，以供本地查询
+定时任务，每隔一定时间向~~N2YO~~自建API发起API请求并解析存储为json文件，以供本地查询
+
+自建API系统为基于Skyfield和FastAPI的卫星过境预测系统，在24小时内与Look4Sat的预测有1秒时间和0.2度方位角的误差，详见[github项目](https://github.com/AwayFromBiscuits/SatPassPredictAPI)
+
 
 ### 太阳图拉取系统
 定时任务，每隔一段时间拉取hamqsl的太阳图并本地存储（正在完善）后在需要时发送
