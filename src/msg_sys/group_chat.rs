@@ -217,7 +217,7 @@ async fn command_router(
             }
         }
     } else {
-        response.message = Some("干什么！".to_string());
+        response.message = Some("干什么喵！".to_string());
     }
 
     let group_id = payload.group_id;
@@ -241,7 +241,7 @@ async fn joke(payload: &MessageEvent, _config: &config::Config) {
                 if text.contains("css") {
                     let response = ApiResponse {
                         success: true,
-                        data: Some(vec!["又想诈骗".to_string()]),
+                        data: Some(vec!["又想诈骗，才不会信的说！".to_string()]),
                         message: None,
                     };
                     send_group_msg(response, group_id).await;
