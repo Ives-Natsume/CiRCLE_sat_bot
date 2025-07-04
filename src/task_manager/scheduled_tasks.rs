@@ -59,7 +59,7 @@ pub fn start_scheduled_module(config: &Config) {
 
     let config_cp2 = config.clone();
     let _sat_pass_data_update = tokio::spawn(async move {
-        const PASS_UPDATE_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24); // 24 hours
+        const PASS_UPDATE_INTERVAL: Duration = Duration::from_secs(60 * 60); // adjust the time if choose n2yo api
 
         loop {
             tracing::info!("Starting satellite pass data update");
