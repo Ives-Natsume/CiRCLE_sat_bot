@@ -6,25 +6,32 @@
 
 ## 功能列表
 
- - 查询AMSAT卫星状态
+ - 查询指定AMSAT卫星状态
  - AMSAT卫星状态变更通知
+ - 指定卫星过境预测
+ - 卫星过境倒计时列表
+ - 卫星过境倒计时提醒
+ - 太阳图调用
  - 暂时没了
 
 ## 使用说明
 
-目前仅支持群内直接@使用，回复的@或者其他方式都不会响应
+直接在群聊中输入命令即可，也可以@Rinko使用
 
 可用命令：
 
- - `/query <sat_name>`，`<sat_name>`对大小写和特殊符号不敏感，支持简称/别名
- - `/help` (`/h`)
- - `/about`
+ - `/query <sat_name>` = `/q <sat_name>`，查询卫星在线状态，`<sat_name>`支持包含于别名库的简称/别名
+ - `/pass <sat_name>` = `/p <sat_name>`，查询卫星过境预测，`<sat_name>`支持包含于别名库的简称/别名，正在测试，暂不开放大群使用
+ - `/all` = `/a`，查询所有卫星过境的倒计时列表
+ - `/sun` = `/s`，查询实时（应该）太阳图
+ - `/help` = `/h`，查询帮助文本
+ - `/about`，查询bot相关信息
 
 使用示例：
 
-```
+``` text
 TX:
-@Shirokane Rinko /query iss
+/q iss
 
 RX:
 ISS-DATA:
@@ -41,13 +48,33 @@ ISS Crew (Voice) Active (3 reports)
 `/query`命令会返回所有符合查询条件的卫星
 由于数据直接来源于AMSAT，所以AMSAT没有的，这里也没有
 
+``` text
+TX:
+/p so50
+
+RX:
+SAUDISAT 1C 过境：起始 08-10 11:45，最高仰角 19.1°，结束 08-10 14:51，持续 191981 秒
+```
+
+`/pass`命令会返回手动选择的存储库内符合查询条件的卫星
+
 ## 项目结构
 
 ### AMSAT拉取/解析系统
 
-定时任务，每隔一定时间拉取AMSAT的HTML文件，解析数据为json文件以供本地查询
+定时任务，每隔一定时间拉取AMSAT的HTML文件并解析数据为json文件，以供本地查询
 
 众所周知，AMSAT的每个小格子代表2h，所以在解析时需要计算当前处于第几个格子，在未来的格子需要跳过解析
+
+### 卫星过境预测系统
+
+定时任务，每隔一定时间向~~N2YO~~自建API发起API请求并解析存储为json文件，以供本地查询
+
+自建API系统为基于Skyfield和FastAPI的卫星过境预测系统，在24小时内与Look4Sat的预测有1秒时间和0.2度方位角的误差，详见[github项目](https://github.com/AwayFromBiscuits/SatPassPredictAPI)
+
+### 太阳图拉取系统
+
+定时任务，每隔一段时间拉取hamqsl的太阳图并本地存储（正在完善）后在需要时发送
 
 ### 查询系统
 
@@ -62,4 +89,4 @@ ISS Crew (Voice) Active (3 reports)
 
 使用LLOneBot，其实我还是没搞清楚OneBot协议该怎么用，反正最后是跑起来了
 
-_It Just Works_
+_It Just Work_

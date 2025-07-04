@@ -101,7 +101,7 @@ aliases = ["io86", "IO86"]
 aliases = ["issfm", "ISSFM", "iss voice", "iss-fm", "iss fm", "iss", "ariss", "ariss fm", "ariss voice", "zarya", "iss zarya"]
 
 [ISS-DATA]
-aliases = ["issdata", "iss packet", "iss aprs",  "iss-data", "iss data", "iss", "ariss", "ariss data", "ariss packet", "ariss aprs"]
+aliases = ["issdata", "iss packet", "iss aprs",  "iss-data", "iss data", "iss", "ariss", "ariss data", "ariss packet", "ariss aprs", "iss sstv"]
 
 [ISS-DATV]
 aliases = ["issdatv", "iss datv", "iss-datv", "iss datv video", "iss datv audio", "iss video", "iss audio", "ariss datv", "ariss video", "ariss audio", "iss", "ariss"]
@@ -146,10 +146,10 @@ aliases = ["oufti1", "oufti"]
 aliases = ["picsat", "picsat1"]
 
 ["PO-101[APRS]"]
-aliases = ["po101aprs", "po101", "PO101APRS", "PO101", "Diwata-2"]
+aliases = ["po101aprs", "po101", "PO101APRS", "PO101", "Diwata-2", "101", "Diwata-2b"]
 
 ["PO-101[FM]"]
-aliases = ["po101fm", "po101", "PO101FM", "PO101", "Diwata-2"]
+aliases = ["po101fm", "po101", "PO101FM", "PO101", "Diwata-2", "101", "Diwata-2b"]
 
 [QIKCOM-1]
 aliases = ["qikcom1", "qikcom"]
@@ -173,13 +173,13 @@ aliases = ["rs25", "RS25"]
 aliases = ["rs44", "RS44", "DOSAAF-5", "44"]
 
 [SO-124]
-aliases = ["so124", "SO124", "HADES-R", "hadesr", "124"]
+aliases = ["so124", "SO124", "HADES-R", "hadesr", "124", "hdr"]
 
 [SO-125]
 aliases = ["so125", "SO125", "HADES-ICM", "hadesicm", "icm", "125"]
 
 [SO-50]
-aliases = ["so50", "SO50"]
+aliases = ["so50", "SO50", "50"]
 
 [SO-33]
 aliases = ["so33", "SO33"]
