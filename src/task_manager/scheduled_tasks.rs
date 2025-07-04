@@ -71,6 +71,18 @@ pub fn start_scheduled_module(config: &Config) {
         }
     });
 
+    let _expired_cache_clean = tokio::spawn(async {
+        use crate::pass_query::sat_cache_clean::clean_expired_passes;
+        loop {
+            match tokio::task::spawn_blocking(clean_expired_passes).await {
+                Ok(Ok(())) => {},
+                Ok(Err(e)) => tracing::error!("清理缓存失败: {:?}", e),
+                Err(e) => tracing::error!("spawn_blocking 执行失败: {:?}", e),
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        }
+    });
+
     let _pass_notify_task = tokio::spawn(async move {
         use tokio::time::{sleep, Duration as TokioDuration};
         use crate::msg_sys::response::send_group_msg;
