@@ -1,5 +1,5 @@
 use std::time::Duration;
-use crate::amsat_parser::run_amsat_module;
+use crate::{amsat_parser::run_amsat_module, response::ApiResponse};
 use crate::config::Config;
 use chrono::{self, Utc, Timelike};
 use std::path::Path;
@@ -83,22 +83,29 @@ pub fn start_scheduled_module(config: &Config) {
         }
     });
 
+    let config_cp3 = config.clone();
     let _pass_notify_task = tokio::spawn(async move {
         use tokio::time::{sleep, Duration as TokioDuration};
-        use crate::msg_sys::response::send_group_msg;
-        use crate::msg_sys::qq_structs::GroupMessageResponse;
+        use crate::msg_sys::group_chat::send_group_msg;
     
-        const GROUP_ID: i64 = 965954401;
+        let special_group_id = config_cp3.backend_config.special_group_id.clone();
     
         loop {
             let results = crate::pass_query::sat_pass_notify::check_upcoming_passes().await;
     
             for msg in results {
-                tracing::info!("Sending scheduled task message: {}", msg);
-    
-                let mut response = GroupMessageResponse::default();
+                let mut response = ApiResponse {
+                    success: true,
+                    data: Some(vec![msg.clone()]),
+                    message: None,
+                };
                 response.message = Some(msg);
-                send_group_msg(response, GROUP_ID).await;
+                
+                if let Some(group_id) = special_group_id {
+                    send_group_msg(response, group_id).await;
+                } else {
+
+                }
             }
             sleep(TokioDuration::from_secs(60)).await;
         }
