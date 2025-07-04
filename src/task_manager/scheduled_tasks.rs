@@ -59,7 +59,7 @@ pub fn start_scheduled_module(config: &Config) {
 
     let config_cp2 = config.clone();
     let _sat_pass_data_update = tokio::spawn(async move {
-        const PASS_UPDATE_INTERVAL: Duration = Duration::from_secs(60 * 60 * 24); // 24 hours
+        const PASS_UPDATE_INTERVAL: Duration = Duration::from_secs(60 * 60); // adjust the time if choose n2yo api
 
         loop {
             tracing::info!("Starting satellite pass data update");
@@ -68,6 +68,18 @@ pub fn start_scheduled_module(config: &Config) {
                 Err(e) => tracing::error!("Error updating satellite pass data: {}", e),
             }
             tokio::time::sleep(PASS_UPDATE_INTERVAL).await;
+        }
+    });
+
+    let _expired_cache_clean = tokio::spawn(async {
+        use crate::pass_query::sat_cache_clean::clean_expired_passes;
+        loop {
+            match tokio::task::spawn_blocking(clean_expired_passes).await {
+                Ok(Ok(())) => {},
+                Ok(Err(e)) => tracing::error!("清理缓存失败: {:?}", e),
+                Err(e) => tracing::error!("spawn_blocking 执行失败: {:?}", e),
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
         }
     });
 
