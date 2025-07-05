@@ -61,25 +61,26 @@ async fn main() -> anyhow::Result<()> {
         match event {
             eventsource_client::SSE::Event(evt) => {
                 if evt.event_type == "message" {
-                    let shared_config  = shared_config.clone();
+                    let shared_config = shared_config.clone();
                     let data = evt.data.clone();
-                    let permit = semaphore.clone().acquire_owned().await.unwrap();
-                    tokio::spawn(async move {
-                        let config = {
-                            let guard = shared_config.lock().unwrap();
-                            guard.clone()
-                        };
-                        let _permit = permit;
-                        let timeout_duration = Duration::from_secs(config.backend_config.timeout);
-                        match timeout(timeout_duration, message_handler(data, &config)).await {
-                            Ok(_) => {
+                    let semaphore = semaphore.clone();
 
-                            }
-                            Err(e) => {
+                    if let Ok(permit) = semaphore.try_acquire_owned() {
+                        tokio::spawn(async move {
+                            let config = {
+                                let guard = shared_config.lock().unwrap();
+                                guard.clone()
+                            };
+                            let _permit = permit;
+
+                            let timeout_duration = Duration::from_secs(config.backend_config.timeout);
+                            if let Err(e) = timeout(timeout_duration, message_handler(data, &config)).await {
                                 tracing::error!("Timeout or error processing message: {}", e);
                             }
-                        }
-                    });
+                        });
+                    } else {
+                        tracing::warn!("Too many concurrent messages, dropping message");
+                    }
                 }
             }
             eventsource_client::SSE::Comment(_) => {

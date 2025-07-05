@@ -196,7 +196,7 @@ pub fn calculate_valid_time_blocks() -> usize {
     let current_hour = now.hour();
 
     let valid_blocks = if current_hour < 2 {
-        1
+        0
     } else {
         (current_hour / 2) as usize
     };
@@ -298,13 +298,13 @@ async fn monitor_satellite_status(
                 data.push("数据保存成功~".to_string());
             } else {
                 tracing::error!("Failed to serialize satellite status cache");
-                msg = "卫星数据序列化失败:(".to_string();
+                msg = "卫星数据序列化失败了喵>_".to_string();
                 success = false;
             }
         }
     } else {
         tracing::error!("Failed to read satellite status cache file");
-        msg = "卫星数据读取失败:(".to_string();
+        msg = "卫星数据读取失败了喵>_".to_string();
         success = false;
     }
 

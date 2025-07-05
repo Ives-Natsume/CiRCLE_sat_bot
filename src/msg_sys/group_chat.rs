@@ -217,7 +217,7 @@ async fn command_router(
             }
         }
     } else {
-        response.message = Some("干什么喵！".to_string());
+        response.message = Some("干什么！哈！".to_string());
     }
 
     let group_id = payload.group_id;
@@ -273,7 +273,7 @@ async fn joke(payload: &MessageEvent, _config: &config::Config) {
                     };
                     send_group_msg(response, group_id).await;
                 }
-                if text.contains("ako") || text.contains("ykn") || text.contains("roselia") || text.contains("sayo") || text.contains("lisa") {
+                if text.contains("roselia") {
                     let response = ApiResponse {
                         success: true,
                         data: Some(vec!["Rinrin Bloom".to_string()]),
@@ -382,10 +382,6 @@ async fn text_router(text: &String, payload: &MessageEvent, config: &config::Con
     if text.contains("circle") ||
         text.contains("rinrin") ||
         text.contains("rinko") ||
-        text.contains("ako") ||
-        text.contains("ykn") ||
-        text.contains("sayo") ||
-        text.contains("lisa") ||
         text.contains("roselia") {
         joke(&payload, config).await;
         return;

@@ -31,15 +31,14 @@ pub async fn check_upcoming_passes() -> Vec<String> {
             if countdown <= 3600 && countdown > 3540 {
                 let utc_time = Utc.timestamp_opt(pass.startUTC, 0).single().unwrap_or(Utc::now());
                 let bjt_time = utc_time + Duration::hours(8);
-                let (is_pm, hour12) = bjt_time.hour12();
-                let am_pm = if is_pm { "下午" } else { "上午" };
+                let hour = bjt_time.hour();
+                let (_is_pm, _hour12) = bjt_time.hour12();
+                let _am_pm = if _is_pm { "下午" } else { "上午" };
     
                 result.push(format!(
-                    "[提醒]:\n卫星 {} 即将过境，预计时间为 {} UTC (北京时间{}{}点{:02}分)",
+                    "[提醒]\n卫星 {} 即将过境，预计时间为北京时间{}:{:02}",
                     sat.satname,
-                    utc_time.format("%Y-%m-%d %H:%M:%S"),
-                    am_pm,
-                    hour12,
+                    hour,
                     bjt_time.minute()
                 ));
             }
