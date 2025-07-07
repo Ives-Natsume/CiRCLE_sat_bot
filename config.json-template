@@ -1,0 +1,55 @@
+{
+    "bot_config": {
+        "?url": "本地llonebot的http协议通信链接",
+        "url": "http://127.0.0.1:3000",
+        "?qq_id": "实际载入bot的qq的qq号",
+        "qq_id": "123123123",
+        "?group_id": "启用bot的群的群号，数组形式",
+        "group_id": [
+            123456,
+            321654
+        ]
+    },
+    "backend_config": {
+        "?about": "bot的/about命令显示的内容，目前暂存此处",
+        "about": [
+            "这里是Rinko喵~Roselia的键盘担当\n",
+            "CiRCLE Satellite Bot",
+            "Version: 0.1.0 Stable",
+            "Contributors: BG5FNA BA8AFK BD8FTG\n",
+            "缓慢开发中，后续将添加过境查询等功能",
+            "欢迎各位老师issue和star\n",
+            "今天也要努力工作喵~"
+        ],
+        "?timeout": "超时秒数",
+        "timeout": 5,
+        "?concurrent_limit": "最大并发数",
+        "concurrent_limit": 10,
+        "?help": "bot的/help命令显示的内容，目前暂存此处",
+        "help": [
+            "# 可用命令：\n",
+            "'/q' 或 '/query'\n- 查询卫星状态\n- 数据来自AMSAT，网页没有这里也没有\n- 大小写/特殊符号不敏感，支持模糊检索\n",
+            "'/h' 或 '/help'\n- 获取帮助信息\n",
+            "'/s'或 '/sun'\n- 查询太阳活动信息\n",
+            "'/p' 或 '/pass'\n- 查询卫星过境信息\n- 正在测试中，咕咕咕咕咕嘎嘎\n",
+            "'/about'\n- 关于Rinko\n\n",
+            "# 使用帮助：\n",
+            "直接在群聊中输入命令或者@Rinko\n",
+            "今天也要努力工作喵~"
+        ],
+        "?special_group_id": "启用卫星过境模块的群的群号，数组形式",
+        "special_group_id": [
+            123456
+        ]
+    },
+    "?pass_api_config": "卫星过境模块拉取api的相关参数",
+    "pass_api_config": {
+        "host": "https://n2yo.com",
+        "api_key": "miraidesu",
+        "lat": 34.369927,
+        "lon": 108.904863,
+        "alt": 0.0,
+        "day": 3,
+        "min_elevation": 10
+    }
+}
