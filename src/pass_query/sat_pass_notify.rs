@@ -46,8 +46,8 @@ pub async fn check_upcoming_passes() -> Vec<String> {
                     end_bjt.minute()
                 ));
             }
-            
         }
+    }
 
     result
 }
