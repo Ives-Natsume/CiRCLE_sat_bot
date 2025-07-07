@@ -220,6 +220,7 @@ async fn monitor_satellite_status(
     let mut data: Vec<String> = Vec::new();
     let mut success = true;
     let mut msg: String = String::new();
+    let mut update_greed_msg = false;
 
     // Check if the satellite status cache file exists
     if !tokio::fs::metadata(SATELLITE_STATUS_CACHE_FILE).await.is_ok() {
@@ -233,10 +234,6 @@ async fn monitor_satellite_status(
             // Deserialize the cached status
             let cached_status: Vec<SatelliteStatusCache> = serde_json::from_str(&cache_content)
                 .expect("Failed to deserialize satellite status cache");
-
-            // Get current time in UTC
-            let _now = chrono::Utc::now();
-            data.push(format!("数据已更新喵~"));
 
             // Analyse status changes
             for sat in &satellite_status {
@@ -263,10 +260,11 @@ async fn monitor_satellite_status(
                             }
                             tracing::info!("Status change detected for {}: {} -> {}", sat.name, cached_sat.status, latest_status);
                             data.push(format!("{}: {}", sat.name, latest_status));
+                            update_greed_msg = true;
                         }
                     } else {
                         tracing::warn!("No valid status found for {}", sat.name);
-                        data.push(format!("找不到{}的数据喵，换个卫星试试吧", sat.name));
+                        data.push(format!("{}的数据不见了喵>_", sat.name));
                     }
                 } else {
                     tracing::warn!("Satellite {} not found in cache", sat.name);
@@ -295,7 +293,7 @@ async fn monitor_satellite_status(
             if let Ok(json_content) = serde_json::to_string_pretty(&cache_content) {
                 tokio::fs::write(SATELLITE_STATUS_CACHE_FILE, json_content).await.expect("Failed to write cache file");
                 tracing::info!("Satellite status cache file created successfully");
-                data.push("数据保存成功~".to_string());
+                data.push("数据初始化成功~".to_string());
             } else {
                 tracing::error!("Failed to serialize satellite status cache");
                 msg = "卫星数据序列化失败了喵>_".to_string();
@@ -308,6 +306,9 @@ async fn monitor_satellite_status(
         success = false;
     }
 
+    if update_greed_msg {
+        data.insert(0, "卫星状态更新了喵~".to_string());
+    }
     ApiResponse::new(success, data, msg)
 }
 

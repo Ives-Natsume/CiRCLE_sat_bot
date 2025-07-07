@@ -40,6 +40,7 @@ async fn main() -> anyhow::Result<()> {
         let config_guard = shared_config.lock().unwrap();
         sat_status::amsat_parser::run_amsat_module(&*config_guard).await?;
         task_manager::scheduled_tasks::start_scheduled_module(&*config_guard);
+        pass_query::sat_pass_predict::update_sat_pass_cache(&*config_guard).await?;
     }
 
     let url = {

@@ -17,17 +17,29 @@ pub fn start_scheduled_module(config: &Config) {
         const RETRY_DELAY: Duration = Duration::from_secs(60);
 
         loop {
-            // schedule the AMSAT module to run at xx:05 every hour
+            // schedule to run at xx:02, xx:17, xx:32, xx:47 every hour
             let now = Utc::now();
             let next_trigger = {
+                let current_minute = now.minute();
+                let minute = match current_minute {
+                    0..=16 => 17,
+                    17..=31 => 32,
+                    32..=46 => 47,
+                    _ => 2, // 47..=59 -> next hour's 02
+                };
+                
                 let mut next = now
-                    .with_minute(5)
+                    .with_minute(minute)
                     .unwrap_or_else(|| now + chrono::Duration::hours(1))
                     .with_second(0)
-                    .unwrap_or_else(|| now + chrono::Duration::minutes(5));
+                    .unwrap_or_else(|| now + chrono::Duration::minutes(minute as i64));
 
-                if next <= now {
+                if minute == 2 && current_minute > 46 {
                     next = next + chrono::Duration::hours(1);
+                }
+                
+                if next <= now {
+                    next = next + chrono::Duration::minutes(15);
                 }
                 next
             };

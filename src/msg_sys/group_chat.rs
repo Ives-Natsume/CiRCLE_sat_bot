@@ -165,8 +165,13 @@ async fn command_router(
         let args = caps.get(2).map(|m| m.as_str().to_string()).unwrap_or_default();
 
         match command.as_str() {
-            "query" | "q"=> {
-                response = query_handler(&args).await;
+            "query" | "q" => {
+                if args.is_empty() {
+                    response.message = Some("告诉我卫星名称喵！".to_string());
+                }
+                else {
+                    response = query_handler(&args).await;
+                }
             },
             "help" | "h" => {
                 response.success = true;

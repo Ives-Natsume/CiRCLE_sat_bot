@@ -69,7 +69,7 @@ pub fn look_up_sat_status_from_json(
     }
     
     if found_sats.is_empty() {
-        ApiResponse::error(format!("Rinko不知道{}是什么喵", sat_name))
+        ApiResponse::error(format!(">_"))
     } else {
         ApiResponse::ok(found_sats)
     }
