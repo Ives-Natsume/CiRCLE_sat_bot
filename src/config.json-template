@@ -42,7 +42,7 @@
             123456
         ]
     },
-    "pass_api_config": "卫星过境模块拉取api的相关参数",
+    "?pass_api_config": "卫星过境模块拉取api的相关参数",
     "pass_api_config": {
         "host": "https://n2yo.com",
         "api_key": "miraidesu",
