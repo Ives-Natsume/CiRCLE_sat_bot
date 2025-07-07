@@ -70,7 +70,7 @@ pub async fn get_all_sats_pass() -> Vec<String> {
     if active_passes.is_empty() && upcoming_passes.is_empty() {
         Vec::new()
     } else {
-        let mut result = vec!["[预告]".to_string()];
+        let mut result = vec!["[预测]".to_string()];
         result.extend(active_passes.into_iter());
         result.extend(upcoming_passes.into_iter().map(|(_, msg)| msg));
         result

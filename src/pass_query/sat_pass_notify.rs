@@ -29,21 +29,25 @@ pub async fn check_upcoming_passes() -> Vec<String> {
             let countdown = pass.startUTC - now;
     
             if countdown <= 3600 && countdown > 3540 {
-                let utc_time = Utc.timestamp_opt(pass.startUTC, 0).single().unwrap_or(Utc::now());
-                let bjt_time = utc_time + Duration::hours(8);
-                let hour = bjt_time.hour();
-                let (_is_pm, _hour12) = bjt_time.hour12();
-                let _am_pm = if _is_pm { "下午" } else { "上午" };
-    
                 result.push(format!(
-                    "[提醒]\n卫星 {} 即将过境，预计时间为北京时间{}:{:02}",
+                    "[提醒]\n卫星 {} 预计将在1h后过境喵...",
+                    sat.satname
+                ));
+            } else if countdown <= 60 && countdown > 0 {
+                let start_bjt = Utc.timestamp_opt(pass.startUTC, 0).single().unwrap_or(Utc::now()) + Duration::hours(8);
+                let end_bjt = Utc.timestamp_opt(pass.endUTC, 0).single().unwrap_or(Utc::now()) + Duration::hours(8);
+            
+                result.push(format!(
+                    "[提醒]\n>>> 卫星过境中 >>>\n{:02}:{:02} -> [{}] -> {:02}:{:02}\n速来建工楼顶喵！",
+                    start_bjt.hour(),
+                    start_bjt.minute(),
                     sat.satname,
-                    hour,
-                    bjt_time.minute()
+                    end_bjt.hour(),
+                    end_bjt.minute()
                 ));
             }
+            
         }
-    }
 
     result
 }

@@ -152,7 +152,7 @@ pub fn query_satellite(name: Option<String>) -> Vec<String> {
                         let end = Local.timestamp_opt(p.endUTC, 0)
                             .unwrap();
                         result.push(format!(
-                            "{} 过境：起始 {}，最高仰角 {:.1}°，结束 {}",
+                            "[预测]\n{} 下一次过境将在{}开始，最高仰角{:.1}°，{}结束喵",
                             sat.satname,
                             start.format("%m-%d %H:%M"),
                             p.maxEl,
