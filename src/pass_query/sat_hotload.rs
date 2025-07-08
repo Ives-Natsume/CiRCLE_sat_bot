@@ -6,22 +6,20 @@ use crate::config::Config;
 
 pub static EXTRA_IDS: Lazy<Arc<Mutex<Vec<String>>>> = Lazy::new(|| Arc::new(Mutex::new(Vec::new())));
 
-const API_ENDPOINT: &str = "http://103.213.4.33:8000/update_tle";
-
-pub async fn add_extra_id(new_id: &str) -> Vec<String> {
+pub async fn add_extra_id(conf: &Config, new_id: &str) -> Vec<String> {
     let mut result = Vec::new();
     let mut ids = EXTRA_IDS.lock().unwrap();
 
     if ids.contains(&new_id.to_string()) {
         result.push(format!("{}已在临时列表中喵~", new_id));
-        return;
+        return result;
     }
 
     ids.push(new_id.to_string());
 
     let url = format!(
         "{}?extra_ids={}&apikey={}",
-        conf.host,ids.join(","),conf.api_key
+        conf.pass_api_config.host, ids.join(","),conf.pass_api_config.api_key
     );
 
     match Client::new().get(&url).send().await {
@@ -37,6 +35,8 @@ pub async fn add_extra_id(new_id: &str) -> Vec<String> {
             result.push("请求API失败了喵...".to_string())
         }
     }
+
+    result
 }
 
 pub fn delete_extra_id(target_id: &str) -> Vec<String> {
@@ -49,6 +49,8 @@ pub fn delete_extra_id(target_id: &str) -> Vec<String> {
     } else {
         result.push(format!("{}不在临时列表中喵...", target_id))
     }
+
+    result
 }
 
 pub fn list_extra_ids() -> Vec<String> {
