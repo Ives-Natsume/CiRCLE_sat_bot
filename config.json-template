@@ -8,6 +8,10 @@
         "group_id": [
             123456,
             321654
+        ],
+        "?admin_id": "允许执行特殊命令的bot管理员的qq号",
+        "admin_id": [
+            123456
         ]
     },
     "backend_config": {

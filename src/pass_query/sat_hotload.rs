@@ -6,8 +6,6 @@ use crate::config::Config;
 
 pub static EXTRA_IDS: Lazy<Arc<Mutex<Vec<String>>>> = Lazy::new(|| Arc::new(Mutex::new(Vec::new())));
 
-const API_ENDPOINT: &str = "http://103.213.4.33:8000/update_tle";
-
 pub async fn add_extra_id(new_id: &str) -> Vec<String> {
     let mut result = Vec::new();
     let mut ids = EXTRA_IDS.lock().unwrap();
