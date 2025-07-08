@@ -12,6 +12,7 @@ pub struct BotConfig {
     pub url: String,
     pub qq_id: String,
     pub group_id: Vec<u64>,
+    pub admin_id: Vec<u64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
