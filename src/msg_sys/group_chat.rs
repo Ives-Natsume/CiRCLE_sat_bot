@@ -7,6 +7,7 @@ use crate::{
 };
 use url;
 use crate::msg_sys::prelude::*;
+use crate::config::CONFIG;
 
 const ENDPOINT_URL: &str = "http://localhost:3300/send_group_msg";
 
@@ -223,8 +224,25 @@ async fn command_router(
                     return;
                 }
 
-                //此处应有函数
-                response.message = Some("这条命令还在测试中呢，晚点再来试试吧！".to_string());
+                if args.is_empty() {
+                    response.message = Some("告诉我卫星编号喵！".to_string());
+                } else {
+                    match args.parse::<u32>() {
+                        Ok(sat_id) => {
+                            let add_result = crate::pass_query::sat_hotload::add_to_temp_list(sat_id, &CONFIG).await;
+
+                            if query_response.is_empty() {
+                                response.message = Some("找不到这个卫星喵...".to_string());
+                            } else {
+                                response.success = true;
+                                response.data = Some(query_response);
+                            }
+                        },
+                        Err(_) => {
+                            response.message = Some("告诉我卫星编号的数字喵！怎么这么笨喵！".to_string());
+                        }
+                    }
+                }
             },
             "help" | "h" => {
                 response.success = true;
