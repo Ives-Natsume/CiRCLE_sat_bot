@@ -173,10 +173,6 @@ async fn command_router(
                     response = query_handler(&args).await;
                 }
             },
-            "help" | "h" => {
-                response.success = true;
-                response.data = config.backend_config.help.clone();
-            },
             "pass" | "p" => {
                 if !config.backend_config.special_group_id.as_ref().map_or(false, |ids| ids.contains(&payload.group_id)) {
                     response.message = Some("这是只有CiRCLE成员才能使用的魔法喵~".to_string());
@@ -212,6 +208,27 @@ async fn command_router(
             "sun" | "s" => {
                 send_group_msg_with_photo(payload.group_id).await;
                 return;
+            },
+            // 热重载函数，搭建中...
+            "add" => {
+                if !config.backend_config.special_group_id.as_ref().map_or(false, |ids| ids.contains(&payload.group_id)) {
+                    response.message = Some("这是只有CiRCLE成员才能使用的魔法喵~".to_string());
+                    send_group_msg(response, payload.group_id).await;
+                    return;
+                }
+
+                if !config.bot_config.admin_id.contains(&payload.user_id) {
+                    response.message = Some("这是只有Roselia成员才能使用的魔法喵~".to_string());
+                    send_group_msg(response, payload.group_id).await;
+                    return;
+                }
+
+                //此处应有函数
+                response.message = Some("这条命令还在测试中呢，晚点再来试试吧！".to_string());
+            },
+            "help" | "h" => {
+                response.success = true;
+                response.data = config.backend_config.help.clone();
             },
             "about" => {
                 response.success = true;
