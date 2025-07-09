@@ -2,7 +2,7 @@ use chrono::{Utc, TimeZone, Duration, Timelike};
 use std::collections::HashMap;
 use tokio::fs;
 use super::sat_pass_predict::SatPassData;
-use crate::satellites::get_notify_id_list;
+use super::satellites::get_notify_id_list;
 
 const CACHE_FILE: &str = "sat_pass_cache.json";
 

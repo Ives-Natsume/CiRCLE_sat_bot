@@ -260,7 +260,7 @@ async fn command_router(
                 if args.is_empty() {
                     response.message = Some("告诉我卫星编号喵！".to_string());
                 } else {
-                    let query_response = crate::pass_query::sat_hotload::remove_from_temp_list(&args).await;
+                    let query_response = crate::pass_query::sat_hotload::remove_from_temp_list(&args, &CONFIG).await;
 
                     if query_response.is_empty() {
                         response.message = Some("找不到这个卫星喵...".to_string());

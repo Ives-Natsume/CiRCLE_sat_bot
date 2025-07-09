@@ -6,20 +6,18 @@ use tracing::error;
 use reqwest::Client;
 use anyhow::Result;
 use crate::config::Config;
+use super::sat_pass_predict::update_sat_pass_cache;
+use super::satellites::refresh_satellite_list;
 
 const TEMP_LIST_FILE: &str = "temp_sat_cache.toml";
 
 #[derive(Serialize, Deserialize, Debug)]
 struct TempSatList(HashMap<String, TempSatInfo>);
 
-fn default_track() -> bool {
-    true
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TempSatInfo {
     pub id: u32,
-    #[serde(default = "default_track")]
+    #[serde(default)]
     pub track: bool,
     #[serde(default)]
     pub notify: bool,
@@ -29,6 +27,27 @@ pub struct TempSatInfo {
 struct SatApiResponse {
     id: u32,
     name: String,
+}
+
+async fn update_remote_tle(extra_ids: &[u32], config: &Config) -> Result<(), String> {
+    if extra_ids.is_empty() {
+        return Ok(());
+    }
+
+    let conf = &config.pass_api_config;
+    let id_str = extra_ids.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",");
+    let url = format!("{}/update_tle?extra_ids={}&apikey={}", conf.host, id_str, conf.api_key);
+
+    match Client::new().get(&url).send().await {
+        Ok(resp) => {
+            if resp.status().is_success() {
+                Ok(())
+            } else {
+                Err(format!("更新 TLE 失败，状态码: {}", resp.status()))
+            }
+        }
+        Err(e) => Err(format!("更新 TLE 请求失败: {}", e)),
+    }
 }
 
 pub async fn add_to_temp_list(id: u32, config: &Config) -> Vec<String> {
@@ -50,7 +69,11 @@ pub async fn add_to_temp_list(id: u32, config: &Config) -> Vec<String> {
                             return result;
                         }
 
-                        cache.0.insert(name.clone(), TempSatInfo { id });
+                        cache.0.insert(name.clone(), TempSatInfo {
+                            id,
+                            track: true,
+                            notify: false,
+                        });
 
                         match toml::to_string_pretty(&cache) {
                             Ok(toml_string) => {
@@ -59,6 +82,11 @@ pub async fn add_to_temp_list(id: u32, config: &Config) -> Vec<String> {
                                     result.push("写入缓存失败喵...".to_string());
                                 } else {
                                     result.push(format!("{}->{} 添加成功喵~", id, name));
+
+                                    refresh_satellite_list();
+                                    let all_ids: Vec<u32> = cache.0.values().map(|info| info.id).collect();
+                                    update_remote_tle(&all_ids, config).await;
+
                                     if let Err(e) = update_sat_pass_cache(config).await {
                                         error!("更新主缓存失败: {}", e);
                                         result.push("同步主缓存失败喵...".to_string());
@@ -112,6 +140,11 @@ pub async fn remove_from_temp_list(name_or_id: &str, config: &Config) -> Vec<Str
                                 result.push("写入缓存失败喵...".to_string());
                             } else {
                                 result.push(format!("{}->{} 移除成功喵~", info.id, key_to_remove));
+
+                                refresh_satellite_list();
+                                let all_ids: Vec<u32> = cache.0.values().map(|info| info.id).collect();
+                                update_remote_tle(&all_ids, config).await;
+
                                 if let Err(e) = update_sat_pass_cache(config).await {
                                     error!("更新主缓存失败: {}", e);
                                     result.push("同步主缓存失败喵...".to_string());

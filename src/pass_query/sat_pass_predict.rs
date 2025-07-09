@@ -31,8 +31,10 @@ pub async fn update_sat_pass_cache(config: &Config) -> anyhow::Result<()> {
     let mut cache: HashMap<String, SatPassData> = HashMap::new();
     let conf = config.pass_api_config.clone();
 
-    let sat_list = SATELLITE_LIST.read().unwrap();
-    let track_sat_list = get_track_sat_list(&sat_list);
+    let track_sat_list = {
+        let sat_list = SATELLITE_LIST.read().unwrap();
+        get_track_sat_list(&sat_list)
+    };
 
     for (name, sat_info) in track_sat_list.iter() {
         let url = format!(
@@ -174,17 +176,17 @@ pub fn query_satellite(name: Option<String>) -> Vec<String> {
     result
 }
 
-fn find_alias_match(query: &str) -> Option<String> {
-    use super::satellites::SATELLITE_ALIASES;
-    for (key, aliases) in SATELLITE_ALIASES.iter() {
-        // if key.eq_ignore_ascii_case(query) || aliases.iter().any(|a| a.eq_ignore_ascii_case(query)) {
-        //     return Some(key.clone());
-        // }
-        let norm_query = sat_name_normalize(query);
-        if sat_name_normalize(key) == norm_query||
-           aliases.iter().any(|a| sat_name_normalize(&a) == norm_query) {
-            return Some(key.clone());
+pub fn find_alias_match(query: &str) -> Option<String> {
+    use crate::pass_query::satellites::get_satellite_aliases;
+
+    let norm_query = sat_name_normalize(query);
+    let alias_map = get_satellite_aliases();
+
+    for (key, aliases) in alias_map.iter() {
+        if sat_name_normalize(key) == norm_query || aliases.iter().any(|a| a == &norm_query || a == query) {
+            return Some(key.to_string());
         }
     }
+
     None
 }
