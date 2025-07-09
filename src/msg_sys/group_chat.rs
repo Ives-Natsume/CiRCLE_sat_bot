@@ -229,7 +229,7 @@ async fn command_router(
                 } else {
                     match args.parse::<u32>() {
                         Ok(sat_id) => {
-                            let add_result = crate::pass_query::sat_hotload::add_to_temp_list(sat_id, &CONFIG).await;
+                            let query_response = crate::pass_query::sat_hotload::add_to_temp_list(sat_id, &CONFIG).await;
 
                             if query_response.is_empty() {
                                 response.message = Some("找不到这个卫星喵...".to_string());
@@ -241,6 +241,32 @@ async fn command_router(
                         Err(_) => {
                             response.message = Some("告诉我卫星编号的数字喵！怎么这么笨喵！".to_string());
                         }
+                    }
+                }
+            },
+            "del" => {
+                if !config.backend_config.special_group_id.as_ref().map_or(false, |ids| ids.contains(&payload.group_id)) {
+                    response.message = Some("这是只有CiRCLE成员才能使用的魔法喵~".to_string());
+                    send_group_msg(response, payload.group_id).await;
+                    return;
+                }
+
+                if !config.bot_config.admin_id.contains(&payload.user_id) {
+                    response.message = Some("这是只有Roselia成员才能使用的魔法喵~".to_string());
+                    send_group_msg(response, payload.group_id).await;
+                    return;
+                }
+
+                if args.is_empty() {
+                    response.message = Some("告诉我卫星编号喵！".to_string());
+                } else {
+                    let query_response = crate::pass_query::sat_hotload::remove_from_temp_list(&args).await;
+
+                    if query_response.is_empty() {
+                        response.message = Some("找不到这个卫星喵...".to_string());
+                    } else {
+                        response.success = true;
+                        response.data = Some(query_response);
                     }
                 }
             },
