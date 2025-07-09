@@ -12,9 +12,17 @@ const TEMP_LIST_FILE: &str = "temp_sat_cache.toml";
 #[derive(Serialize, Deserialize, Debug)]
 struct TempSatList(HashMap<String, TempSatInfo>);
 
+fn default_track() -> bool {
+    true
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TempSatInfo {
     pub id: u32,
+    #[serde(default = "default_track")]
+    pub track: bool,
+    #[serde(default)]
+    pub notify: bool,
 }
 
 #[derive(Deserialize)]
@@ -23,7 +31,7 @@ struct SatApiResponse {
     name: String,
 }
 
-pub async fn add_to_temp_list(id: u32) -> Vec<String> {
+pub async fn add_to_temp_list(id: u32, config: &Config) -> Vec<String> {
     let mut result = Vec::new();
     let conf = config.pass_api_config.clone();
 
@@ -51,6 +59,10 @@ pub async fn add_to_temp_list(id: u32) -> Vec<String> {
                                     result.push("写入缓存失败喵...".to_string());
                                 } else {
                                     result.push(format!("{}->{} 添加成功喵~", id, name));
+                                    if let Err(e) = update_sat_pass_cache(config).await {
+                                        error!("更新主缓存失败: {}", e);
+                                        result.push("同步主缓存失败喵...".to_string());
+                                    }
                                 }
                             }
                             Err(e) => {
@@ -77,7 +89,7 @@ pub async fn add_to_temp_list(id: u32) -> Vec<String> {
     result
 }
 
-pub async fn remove_from_temp_list(name_or_id: &str) -> Vec<String> {
+pub async fn remove_from_temp_list(name_or_id: &str, config: &Config) -> Vec<String> {
     let mut result = Vec::new();
 
     match load_temp_list().await {
@@ -100,6 +112,10 @@ pub async fn remove_from_temp_list(name_or_id: &str) -> Vec<String> {
                                 result.push("写入缓存失败喵...".to_string());
                             } else {
                                 result.push(format!("{}->{} 移除成功喵~", info.id, key_to_remove));
+                                if let Err(e) = update_sat_pass_cache(config).await {
+                                    error!("更新主缓存失败: {}", e);
+                                    result.push("同步主缓存失败喵...".to_string());
+                                }
                             }
                         }
                         Err(e) => {

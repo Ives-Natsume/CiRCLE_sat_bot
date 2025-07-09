@@ -1,6 +1,7 @@
 use chrono::{Utc, TimeZone, Duration, Timelike};
-use std::{collections::HashMap};
+use std::collections::HashMap;
 use super::sat_pass_predict::SatPassData;
+use super::satellites::get_notify_id_list;
 use tokio::fs;
 
 const CACHE_FILE: &str = "sat_pass_cache.json";
@@ -22,12 +23,17 @@ pub async fn get_all_sats_pass() -> Vec<String> {
         }
     };
 
+    let notify_ids = get_notify_id_list();
     let now = Utc::now().timestamp();
 
     let mut active_passes = Vec::new();
     let mut upcoming_passes: Vec<(i64, String)> = Vec::new();
 
     for sat in data.values() {
+        if !notify_ids.contains(&sat.satid) {
+            continue;
+        }
+
         if let Some(p) = sat
             .passes
             .iter()
@@ -49,11 +55,11 @@ pub async fn get_all_sats_pass() -> Vec<String> {
             let countdown = p.startUTC - now;
             let hours = countdown / 3600;
             let minutes = (countdown % 3600) / 60;
-    
+
             let utc_time = Utc.timestamp_opt(p.startUTC, 0).single().unwrap_or(Utc::now());
             let bjt_time = utc_time + Duration::hours(8);
             let bjt_formatted = format!("{:02}:{:02}", bjt_time.hour(), bjt_time.minute());
-    
+
             upcoming_passes.push((
                 countdown,
                 format!(
@@ -63,7 +69,6 @@ pub async fn get_all_sats_pass() -> Vec<String> {
             ));
         }
     }
-    
 
     upcoming_passes.sort_by_key(|(countdown, _)| *countdown);
 
@@ -71,7 +76,7 @@ pub async fn get_all_sats_pass() -> Vec<String> {
         Vec::new()
     } else {
         let mut result = vec!["[预测]".to_string()];
-        result.extend(active_passes.into_iter());
+        result.extend(active_passes);
         result.extend(upcoming_passes.into_iter().map(|(_, msg)| msg));
         result
     }

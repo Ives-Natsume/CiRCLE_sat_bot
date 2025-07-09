@@ -1,77 +1,90 @@
-use std::collections::HashMap;
-use lazy_static::lazy_static;
+use serde::Deserialize;
+use std::{collections::HashMap, fs};
+use once_cell::sync::Lazy;
+use std::sync::RwLock;
 
-#[allow(unused)]
-pub struct SatelliteInfo {
+pub type SatelliteMap = HashMap<String, AllSatInfo>;
+
+
+const MAIN_FILE: &str = "satellites.toml";
+const TEMP_FILE: &str = "temp_sat_cache.toml";
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct AllSatInfo {
+    pub aliases: Option<Vec<String>>,
     pub id: u32,
-    pub aliases: Vec<String>,
+    #[serde(default)]
+    pub track: bool,
+    #[serde(default)]
+    pub notify: bool,
 }
 
-lazy_static! {
-    pub static ref SATELLITE_LIST: HashMap<String, SatelliteInfo> = {
-        let mut map = HashMap::new();
-
-        // FM sats
-        map.insert(
-            "AO-123".to_string(),
-            SatelliteInfo {
-                id: 61781,
-                aliases: vec!["AO123".to_string(), "ao123".to_string(), "asrtu".to_string()],
-            },
-        );
-
-        map.insert(
-            "AO-91".to_string(),
-            SatelliteInfo {
-                id: 43017,
-                aliases: vec!["AO91".to_string(), "ao91".to_string(), "Fox-1B".to_string(), "RadFxSat".to_string()],
-            },
-        );
-
-        map.insert(
-            "ISS".to_string(),
-            SatelliteInfo {
-                id: 25544,
-                aliases: vec![
-                    "iss".to_string(), "ISSFM".to_string(), "iss voice".to_string(), "iss-fm".to_string(),
-                    "iss fm".to_string(), "iss".to_string(), "ariss".to_string(), "ariss fm".to_string(),
-                    "ariss voice".to_string(), "zarya".to_string(), "iss zarya".to_string()
-                ],
-            },
-        );
-
-        map.insert(
-            "SO-124".to_string(),
-            SatelliteInfo {
-                id: 62690,
-                aliases: vec!["so124".to_string(), "SO124".to_string(), "HADES-R".to_string(), "hadesr".to_string(), "124".to_string()],
-            },
-        );
-
-        map.insert(
-            "SO-125".to_string(),
-            SatelliteInfo {
-                id: 63492,
-                aliases: vec!["so125".to_string(), "SO125".to_string(), "HADES-ICM".to_string(), "hadesicm".to_string(), "icm".to_string(), "125".to_string()],
-            },
-        );
-
-        map.insert(
-            "SO-50".to_string(),
-            SatelliteInfo {
-                id: 27607,
-                aliases: vec!["so50".to_string(), "SO50".to_string()],
-            },
-        );
-
-        map
-    };
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SatInfo {
+    pub id: u32,
 }
 
-lazy_static! {
-    pub static ref SATELLITE_ALIASES: HashMap<String, Vec<String>> = {
-        SATELLITE_LIST.iter()
-            .map(|(name, info)| (name.clone(), info.aliases.clone()))
-            .collect()
-    };
+fn load_combined_satellites() -> HashMap<String, AllSatInfo> {
+    let main_content = fs::read_to_string(MAIN_FILE).unwrap_or_else(|_| {
+        eprintln!("无法读取 {}", MAIN_FILE);
+        String::new()
+    });
+
+    let mut main_map: HashMap<String, AllSatInfo> =
+        toml::from_str(&main_content).unwrap_or_else(|_| {
+            eprintln!("解析 {} 失败", MAIN_FILE);
+            HashMap::new()
+        });
+
+    let temp_content = fs::read_to_string(TEMP_FILE).unwrap_or_else(|_| {
+        eprintln!("无法读取 {}", TEMP_FILE);
+        String::new()
+    });
+
+    let temp_map: HashMap<String, AllSatInfo> =
+        toml::from_str(&temp_content).unwrap_or_else(|_| {
+            eprintln!("解析 {} 失败", TEMP_FILE);
+            HashMap::new()
+        });
+
+    for (name, info) in temp_map {
+        main_map.insert(name, info);
+    }
+
+    main_map
+}
+
+pub static SATELLITE_LIST: Lazy<RwLock<HashMap<String, AllSatInfo>>> = Lazy::new(|| {
+    RwLock::new(load_combined_satellites())
+});
+
+pub static SATELLITE_ALIASES: Lazy<HashMap<String, Vec<String>>> = Lazy::new(|| {
+    let mut map: HashMap<String, Vec<String>> = HashMap::new();
+    for (name, info) in SATELLITE_LIST.iter() {
+        map.insert(name.clone(), info.aliases.clone());
+    }
+    map
+});
+
+pub fn get_track_sat_list(
+    satellites: &HashMap<String, AllSatInfo>
+) -> HashMap<String, SatInfo> {
+    satellites
+        .iter()
+        .filter_map(|(name, info)| {
+            if info.track {
+                info.id.map(|id| (name.clone(), SatInfo { id }))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+pub fn get_notify_id_list() -> Vec<u32> {
+    SATELLITE_LIST
+        .values()
+        .filter(|s| s.notify)
+        .map(|s| s.id)
+        .collect()
 }

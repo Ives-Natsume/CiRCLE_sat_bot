@@ -4,6 +4,8 @@ aliases = ["aisat1"]
 [AO-123]
 aliases = ["AO123", "ao123", "asrtu", "阿斯图", "123"]
 id = 61781
+track = true
+notify = true
 
 [AO-27]
 aliases = ["AO27", "ao27"]
@@ -23,6 +25,8 @@ aliases = ["AO85", "ao85"]
 [AO-91]
 aliases = ["AO91", "ao91", "Fox-1B", "RadFxSat"]
 id = 43017
+track = true
+notify = true
 
 [CAS-2T]
 aliases = ["CAS2T", "cas2t"]
@@ -102,6 +106,8 @@ aliases = ["io86", "IO86"]
 [ISS-FM]
 aliases = ["issfm", "ISSFM", "iss voice", "iss-fm", "iss fm", "iss", "ariss", "ariss fm", "ariss voice", "zarya", "iss zarya"]
 id = 25544
+track = true
+notify = true
 
 [ISS-DATA]
 aliases = ["issdata", "iss packet", "iss aprs",  "iss-data", "iss data", "iss", "ariss", "ariss data", "ariss packet", "ariss aprs", "iss sstv"]
@@ -178,14 +184,20 @@ aliases = ["rs44", "RS44", "DOSAAF-5", "44"]
 [SO-124]
 aliases = ["so124", "SO124", "HADES-R", "hadesr", "124", "hdr"]
 id = 62690
+track = true
+notify = true
 
 [SO-125]
 aliases = ["so125", "SO125", "HADES-ICM", "hadesicm", "icm", "125"]
 id = 63492
+track = true
+notify = true
 
 [SO-50]
 aliases = ["so50", "SO50", "50"]
 id = 27607
+track = true
+notify = true
 
 [SO-33]
 aliases = ["so33", "SO33"]
