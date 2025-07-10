@@ -88,7 +88,7 @@ pub async fn get_all_sats_pass() -> Vec<String> {
         if info.notify {
             if let Some(id) = info.id {
                 if !found_ids.contains(&id) {
-                    no_cache_info.push((format!("{} | 未缓存信息...", name)));
+                    no_cache_info.push(format!("{} | 未缓存信息...", name));
                 }
             }
         }
