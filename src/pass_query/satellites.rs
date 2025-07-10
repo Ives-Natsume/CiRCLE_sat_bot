@@ -101,9 +101,10 @@ pub fn get_track_sat_list(
         .collect()
 }
 
-pub fn get_notify_id_list() -> Vec<u32> {
-    let satellite_list = SATELLITE_LIST.read().unwrap();
-    satellite_list
+pub fn get_notify_id_list(
+    sat_map: &HashMap<String, AllSatInfo>
+) -> Vec<u32> {
+    sat_map
         .values()
         .filter(|s| s.notify)
         .filter_map(|s| s.id)

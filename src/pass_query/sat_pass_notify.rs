@@ -2,7 +2,7 @@ use chrono::{Utc, TimeZone, Duration, Timelike};
 use std::collections::HashMap;
 use tokio::fs;
 use super::sat_pass_predict::SatPassData;
-use super::satellites::get_notify_id_list;
+use super::satellites::{SATELLITE_LIST, get_notify_id_list};
 
 const CACHE_FILE: &str = "sat_pass_cache.json";
 
@@ -23,7 +23,8 @@ pub async fn check_upcoming_passes() -> Vec<String> {
         }
     };
 
-    let notify_ids = get_notify_id_list();
+    let sat_map = SATELLITE_LIST.read().unwrap();
+    let notify_ids = get_notify_id_list(&sat_map);
 
     let now = Utc::now().timestamp();
     let mut result = Vec::new();

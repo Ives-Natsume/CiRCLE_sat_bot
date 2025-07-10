@@ -270,6 +270,45 @@ async fn command_router(
                     }
                 }
             },
+            "permission" | "chmod" => {
+                if !config.backend_config.special_group_id.as_ref().map_or(false, |ids| ids.contains(&payload.group_id)) {
+                    response.message = Some("这是只有CiRCLE成员才能使用的魔法喵~".to_string());
+                    send_group_msg(response, payload.group_id).await;
+                    return;
+                }
+
+                if !config.bot_config.admin_id.contains(&payload.user_id) {
+                    response.message = Some("这是只有Roselia成员才能使用的魔法喵~".to_string());
+                    send_group_msg(response, payload.group_id).await;
+                    return;
+                }
+
+                let args_vec: Vec<&str> = args.split_whitespace().collect();
+
+                if args_vec.len() != 3 {
+                    response.message = Some("格式是permission <卫星ID> <权限> <开关> 喵！".to_string());
+                } else {
+                    let name_or_id = args_vec[0];
+                    let field = args_vec[1];
+                    let value = match args_vec[2].parse::<u8>() {
+                        Ok(v) => v,
+                        Err(_) => {
+                            response.message = Some("小开关没有反应呢...".to_string());
+                            send_group_msg(response, payload.group_id).await;
+                            return;
+                        }
+                    };
+
+                    let query_response = crate::pass_query::sat_hotload::set_temp_sat_permission(name_or_id, field, value, &CONFIG).await;
+
+                    if query_response.is_empty() {
+                        response.message = Some("没有找到这个卫星喵...".to_string());
+                    } else {
+                        response.success = true;
+                        response.data = Some(query_response);
+                    }
+                }
+            },
             "help" | "h" => {
                 response.success = true;
                 response.data = config.backend_config.help.clone();

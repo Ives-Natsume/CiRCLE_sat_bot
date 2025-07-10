@@ -63,10 +63,10 @@ pub fn load_config(config_path: &str) -> Config {
     })
 }
 
-use notify::{Watcher, RecursiveMode, RecommendedWatcher};
-use std::sync::mpsc::channel;
+use notify::{Watcher//, RecursiveMode, RecommendedWatcher};
+//use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
-use std::path::Path;
+//use std::path::Path;
 pub static CONFIG_PATH: &str = "config.json";
 type SharedConfig = Arc<Mutex<Config>>;
 

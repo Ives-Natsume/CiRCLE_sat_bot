@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use toml;
-use tracing::error;
+use tracing::{info, error};
 use reqwest::Client;
 use anyhow::Result;
 use crate::config::Config;
-use super::sat_pass_predict::update_sat_pass_cache;
+use super::sat_pass_predict::{update_sat_pass_cache, find_alias_match};
 use super::satellites::refresh_satellite_list;
 
 const TEMP_LIST_FILE: &str = "temp_sat_cache.toml";
@@ -25,7 +25,6 @@ pub struct TempSatInfo {
 
 #[derive(Deserialize)]
 struct SatApiResponse {
-    id: u32,
     name: String,
 }
 
@@ -85,7 +84,9 @@ pub async fn add_to_temp_list(id: u32, config: &Config) -> Vec<String> {
 
                                     refresh_satellite_list();
                                     let all_ids: Vec<u32> = cache.0.values().map(|info| info.id).collect();
-                                    update_remote_tle(&all_ids, config).await;
+                                    if let Err(e) = update_remote_tle(&all_ids, config).await {
+                                        tracing::error!("更新远程 TLE 失败: {}", e);
+                                    }
 
                                     if let Err(e) = update_sat_pass_cache(config).await {
                                         error!("更新主缓存失败: {}", e);
@@ -143,7 +144,9 @@ pub async fn remove_from_temp_list(name_or_id: &str, config: &Config) -> Vec<Str
 
                                 refresh_satellite_list();
                                 let all_ids: Vec<u32> = cache.0.values().map(|info| info.id).collect();
-                                update_remote_tle(&all_ids, config).await;
+                                if let Err(e) = update_remote_tle(&all_ids, config).await {
+                                    tracing::error!("更新远程 TLE 失败: {}", e);
+                                }
 
                                 if let Err(e) = update_sat_pass_cache(config).await {
                                     error!("更新主缓存失败: {}", e);
@@ -157,7 +160,7 @@ pub async fn remove_from_temp_list(name_or_id: &str, config: &Config) -> Vec<Str
                         }
                     }
                 } else {
-                    result.push("移除了失败喵...".to_string());
+                    result.push("移除失败了喵...".to_string());
                 }
             } else {
                 result.push(format!("没有找到{}喵...", name_or_id));
@@ -166,6 +169,87 @@ pub async fn remove_from_temp_list(name_or_id: &str, config: &Config) -> Vec<Str
         Err(e) => {
             error!("请求失败: {}", e);
             result.push("请求失败了喵...".to_string());
+        }
+    }
+
+    result
+}
+
+pub async fn set_temp_sat_permission(
+    name_or_id: &str,
+    field: &str,
+    value: u8,
+    config: &Config,
+) -> Vec<String> {
+    let mut result = Vec::new();
+
+    match load_temp_list().await {
+        Ok(mut cache) => {
+            let key_opt = if let Ok(id) = name_or_id.parse::<u32>() {
+                cache.0.iter()
+                    .find(|(_, info)| info.id == id)
+                    .map(|(k, _)| k.clone())
+            } else {
+                let name = find_alias_match(name_or_id).unwrap_or_else(|| name_or_id.to_string());
+                cache.0.get_key_value(&name).map(|(k, _)| k.clone())
+            };
+
+            if let Some(key) = key_opt {
+                let sat_info = cache.0.get_mut(&key).unwrap();
+
+                match field {
+                    "track" | "t" => {
+                        sat_info.track = value != 0;
+                        result.push(format!(
+                            "{}->{} 预测功能已{}喵~",
+                            sat_info.id,
+                            key,
+                            if value != 0 { "开启" } else { "关闭" }
+                        ));
+                    }
+                    "notify" | "n" => {
+                        sat_info.notify = value != 0;
+                        result.push(format!(
+                            "{}->{} 播报功能已{}喵~",
+                            sat_info.id,
+                            key,
+                            if value != 0 { "开启" } else { "关闭" }
+                        ));
+                    }
+                    _ => {
+                        result.push("找不到这个参数喵...".to_string());
+                        return result;
+                    }
+                }
+
+                match toml::to_string_pretty(&cache) {
+                    Ok(toml_string) => {
+                        if let Err(e) = fs::write(TEMP_LIST_FILE, toml_string).await {
+                            error!("写入失败: {}", e);
+                            result.push("写入缓存失败喵...".to_string());
+                        } else {
+                            refresh_satellite_list();
+                            let all_ids: Vec<u32> = cache.0.values().map(|info| info.id).collect();
+                            update_remote_tle(&all_ids, config).await;
+
+                            if let Err(e) = update_sat_pass_cache(config).await {
+                                error!("更新主缓存失败: {}", e);
+                                result.push("同步主缓存失败喵...".to_string());
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("序列化失败: {}", e);
+                        result.push("缓存序列化失败喵...".to_string());
+                    }
+                }
+            } else {
+                result.push(format!("没有找到{}喵...", name_or_id));
+            }
+        }
+        Err(e) => {
+            error!("缓存加载失败: {}", e);
+            result.push("缓存加载失败了喵...".to_string());
         }
     }
 
