@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use toml;
-use tracing::{info, error};
+use tracing::error;
 use reqwest::Client;
 use anyhow::Result;
 use crate::config::Config;
@@ -229,7 +229,9 @@ pub async fn set_temp_sat_permission(
                         } else {
                             refresh_satellite_list();
                             let all_ids: Vec<u32> = cache.0.values().map(|info| info.id).collect();
-                            update_remote_tle(&all_ids, config).await;
+                            if let Err(e) = update_remote_tle(&all_ids, config).await {
+                                tracing::error!("更新远程 TLE 失败: {}", e);
+                            }
 
                             if let Err(e) = update_sat_pass_cache(config).await {
                                 error!("更新主缓存失败: {}", e);

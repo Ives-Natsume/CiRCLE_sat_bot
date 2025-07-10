@@ -93,7 +93,7 @@ pub fn get_track_sat_list(
         .iter()
         .filter_map(|(name, info)| {
             if info.track {
-                info.id(|id| (name.clone(), SatInfo { id: info.id }))
+                info.id.map(|id| (name.clone(), SatInfo { id }))
             } else {
                 None
             }
