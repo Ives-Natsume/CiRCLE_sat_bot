@@ -309,6 +309,9 @@ async fn monitor_satellite_status(
     if update_greed_msg {
         data.insert(0, "卫星状态更新了喵~".to_string());
     }
+    else {
+        data.insert(0, "数据已更新喵~".to_string());
+    }
     ApiResponse::new(success, data, msg)
 }
 

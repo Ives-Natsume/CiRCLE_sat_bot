@@ -52,7 +52,6 @@ async fn update_remote_tle(extra_ids: &[u32], config: &Config) -> Result<(), Str
 pub async fn add_to_temp_list(id: u32, config: &Config) -> Vec<String> {
     let mut result = Vec::new();
     let conf = config.pass_api_config.clone();
-
     let url = format!("{}/search?id={}&apikey={}", conf.host, id, conf.api_key);
 
     match Client::new().get(&url).send().await {

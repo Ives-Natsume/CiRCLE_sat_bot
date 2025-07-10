@@ -22,6 +22,11 @@ pub async fn send_group_msg(
         .map(|data| data.join("\n"))
         .unwrap_or_else(|| response.message.unwrap_or_else(|| "No data available".to_string()));
 
+    if message_text == "数据已更新喵~" {
+        //tracing::info!("No need to send message, data is already updated.");
+        return;
+    }
+
     let msg_body = serde_json::json!({
         "group_id": group_id,
         "message": [
