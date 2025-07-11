@@ -1,7 +1,10 @@
-use crate::pass_query::satellites::{SATELLITE_LIST, TEMP_FILE};
+use crate::pass_query::satellites::SATELLITE_LIST;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use crate::pass_query::satellites::AllSatInfo;
+
+
+const TEMP_FILE: &str = "temp_sat_cache.toml";
 
 pub fn list_sat_list() -> Vec<String> {
     let all_map = SATELLITE_LIST.read().unwrap();

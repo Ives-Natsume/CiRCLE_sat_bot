@@ -322,7 +322,7 @@ async fn command_router(
                     return;
                 }
 
-                let query_response = crate::pass_query::sat_list::list_sat_list().await;
+                let query_response = crate::pass_query::sat_list::list_sat_list();
                 if query_response.is_empty() {
                     response.message = Some("导出列表失败了...".to_string());
                 } else {
