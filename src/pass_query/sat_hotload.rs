@@ -9,7 +9,7 @@ use crate::config::Config;
 use super::sat_pass_predict::{update_sat_pass_cache, find_alias_match};
 use super::satellites::refresh_satellite_list;
 
-const TEMP_LIST_FILE: &str = "temp_sat_cache.toml";
+const TEMP_FILE: &str = "temp_sat_cache.toml";
 
 #[derive(Serialize, Deserialize, Debug)]
 struct TempSatList(HashMap<String, TempSatInfo>);
@@ -75,7 +75,7 @@ pub async fn add_to_temp_list(id: u32, config: &Config) -> Vec<String> {
 
                         match toml::to_string_pretty(&cache) {
                             Ok(toml_string) => {
-                                if let Err(e) = fs::write(TEMP_LIST_FILE, toml_string).await {
+                                if let Err(e) = fs::write(TEMP_FILE, toml_string).await {
                                     error!("写入缓存失败: {}", e);
                                     result.push("写入缓存失败喵...".to_string());
                                 } else {
@@ -135,7 +135,7 @@ pub async fn remove_from_temp_list(name_or_id: &str, config: &Config) -> Vec<Str
                 if let Some(info) = removed {
                     match toml::to_string_pretty(&cache) {
                         Ok(toml_string) => {
-                            if let Err(e) = fs::write(TEMP_LIST_FILE, toml_string).await {
+                            if let Err(e) = fs::write(TEMP_FILE, toml_string).await {
                                 error!("写入失败: {}", e);
                                 result.push("写入缓存失败喵...".to_string());
                             } else {
@@ -223,7 +223,7 @@ pub async fn set_temp_sat_permission(
 
                 match toml::to_string_pretty(&cache) {
                     Ok(toml_string) => {
-                        if let Err(e) = fs::write(TEMP_LIST_FILE, toml_string).await {
+                        if let Err(e) = fs::write(TEMP_FILE, toml_string).await {
                             error!("写入失败: {}", e);
                             result.push("写入缓存失败喵...".to_string());
                         } else {
@@ -258,7 +258,7 @@ pub async fn set_temp_sat_permission(
 }
 
 async fn load_temp_list() -> Result<TempSatList> {
-    let content = fs::read_to_string(TEMP_LIST_FILE).await?;
+    let content = fs::read_to_string(TEMP_FILE).await?;
     let cache: TempSatList = toml::from_str(&content)?;
     Ok(cache)
 }
