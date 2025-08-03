@@ -36,13 +36,16 @@ async fn main() -> anyhow::Result<()> {
     // let (mut tx, mut rx) = channel::<BotMessage, _, _>(r, w);
     // let tx = Arc::new(RwLock::new(tx));
     let (mut tx_sink, mut rx_stream) = channel::<BotMessage, _, _>(r, w);
+    let (tx_filerequest, rx_filerequest) = tokio::sync::mpsc::channel::<FileRequest>(100);
 
     let tx_shared = Arc::new(RwLock::new(tx_sink));
+    let tx_filerequest_shared = Arc::new(RwLock::new(tx_filerequest));
     loop {
         match rx_stream.recv().await { // Or rx_stream.next().await if using futures::StreamExt
             Ok(msg) => { // Use Some(msg) if Framed::next() returns Option<Result<T, E>>
                 tracing::debug!("Received message: {:?}", msg);
                 let tx_clone_for_task = Arc::clone(&tx_shared); // Clone Arc for each task
+                let tx_filerequest_clone = Arc::clone(&tx_filerequest_shared);
 
                 tokio::spawn(async move {
                     match msg {
@@ -57,7 +60,10 @@ async fn main() -> anyhow::Result<()> {
                             // No action needed for Pong
                         }
                         socket::BotMessage::Chat { content, .. } => {
-                            let response = router::bot_message_handler(content.clone()).await;
+                            let response = router::bot_message_handler(
+                                content.clone(),
+                                tx_filerequest_clone.clone()
+                            ).await;
                             let mut tx = tx_clone_for_task.write().await;
                             let response_content = MsgContent {
                                 command: None,

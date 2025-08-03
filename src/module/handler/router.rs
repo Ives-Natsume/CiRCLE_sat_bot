@@ -5,18 +5,26 @@ use crate::{
         MessageEvent,
     },
     response::ApiResponse,
-    socket::{BotMessage, MsgContent}
+    socket::{BotMessage, MsgContent},
+    fs::handler::{
+        FileRequest,
+        FileFormat,
+        FileData,
+    }
 };
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 pub async fn bot_message_handler(
     msg: MsgContent,
+    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
 ) -> ApiResponse<Vec<String>> {
     let mut response: ApiResponse<Vec<String>> = ApiResponse {
         success: false,
         data: None,
         message: None,
     };
-    if let Some(message) = msg.message {
+    if let Some(_message) = msg.message {
         // core端确保包含message的消息不会携带payload和command
         // 直接退出
         return response;
@@ -30,12 +38,13 @@ pub async fn bot_message_handler(
     };
 
     let payload = BinMessageEvent::from_bin_message_event(payload);
-    router(command, payload).await
+    router(command, payload, tx_filerequest).await
 }
 
 async fn router(
     command: String,
     payload: MessageEvent,
+    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
 ) -> ApiResponse<Vec<String>> {
     let mut response: ApiResponse<Vec<String>> = ApiResponse {
         success: false,
