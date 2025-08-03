@@ -1,0 +1,657 @@
+2025-07-30T10:23:13.474283Z  INFO CiRCLE_sat_bot_server: 日志初始化成功
+2025-07-30T10:23:13.487776Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T10:23:17.134762Z ERROR CiRCLE_sat_bot_server: Error receiving message: Bincode does not support Deserializer::deserialize_identifier
+2025-07-30T11:22:32.692761Z  INFO CiRCLE_sat_bot_server: 日志初始化成功
+2025-07-30T11:22:32.708763Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:22:35.566903Z ERROR CiRCLE_sat_bot_server: Error receiving message: Bincode does not support Deserializer::deserialize_identifier
+2025-07-30T11:35:06.381833Z  INFO CiRCLE_sat_bot_server: 日志初始化成功
+2025-07-30T11:35:06.390671Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:35:11.398869Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:35:16.396244Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:35:21.395940Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:35:22.979618Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753875322, message_id: 74703565, message_seq: 71314, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "Metasequoia [BG5FNA][星压抑][白金燐子应援团]", role: "member", title: "" }, raw_message: "/q", font: 14, sub_type: "normal", message: [Text { text: "/q" }], message_format: "array", post_type: "message", group_id: 965954401 }), message: None, api_response: None } }
+2025-07-30T11:35:22.979750Z DEBUG CiRCLE_sat_bot_server: Chat from CiRCLE_sat_bot_core to CiRCLE_sat_bot_server: MsgContent {
+    command: Some(
+        "q",
+    ),
+    payload: Some(
+        BinMessageEvent {
+            self_id: 3906406150,
+            user_id: 3386134415,
+            time: 1753875322,
+            message_id: 74703565,
+            message_seq: 71314,
+            message_type: "group",
+            sender: Sender {
+                user_id: 3386134415,
+                nickname: "Metasequoia",
+                card: "Metasequoia [BG5FNA][星压抑][白金燐子应援团]",
+                role: "member",
+                title: "",
+            },
+            raw_message: "/q",
+            font: 14,
+            sub_type: "normal",
+            message: [
+                Text {
+                    text: "/q",
+                },
+            ],
+            message_format: "array",
+            post_type: "message",
+            group_id: 965954401,
+        },
+    ),
+    message: None,
+    api_response: None,
+}
+2025-07-30T11:35:26.394353Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:35:31.398423Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:35:36.395238Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:35:41.401722Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:35:46.389157Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:35:49.435610Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753875349, message_id: 1296688014, message_seq: 71316, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "Metasequoia [BG5FNA][星压抑][白金燐子应援团]", role: "member", title: "" }, raw_message: "/q", font: 14, sub_type: "normal", message: [Text { text: "/q" }], message_format: "array", post_type: "message", group_id: 965954401 }), message: None, api_response: None } }
+2025-07-30T11:35:49.435928Z DEBUG CiRCLE_sat_bot_server: Chat from CiRCLE_sat_bot_core to CiRCLE_sat_bot_server: MsgContent {
+    command: Some(
+        "q",
+    ),
+    payload: Some(
+        BinMessageEvent {
+            self_id: 3906406150,
+            user_id: 3386134415,
+            time: 1753875349,
+            message_id: 1296688014,
+            message_seq: 71316,
+            message_type: "group",
+            sender: Sender {
+                user_id: 3386134415,
+                nickname: "Metasequoia",
+                card: "Metasequoia [BG5FNA][星压抑][白金燐子应援团]",
+                role: "member",
+                title: "",
+            },
+            raw_message: "/q",
+            font: 14,
+            sub_type: "normal",
+            message: [
+                Text {
+                    text: "/q",
+                },
+            ],
+            message_format: "array",
+            post_type: "message",
+            group_id: 965954401,
+        },
+    ),
+    message: None,
+    api_response: None,
+}
+2025-07-30T11:35:51.403294Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:35:56.391752Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:36:01.402138Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:36:06.403008Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:36:11.403047Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:36:16.399816Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:36:21.392104Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:51:45.995015Z  INFO CiRCLE_sat_bot_server: 日志初始化成功
+2025-07-30T11:54:56.570346Z  INFO CiRCLE_sat_bot_server: 日志初始化成功
+2025-07-30T11:55:02.646598Z  INFO CiRCLE_sat_bot_server: 日志初始化成功
+2025-07-30T11:55:02.651905Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:55:07.659092Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:55:12.651196Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:55:13.547020Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753876513, message_id: 2077033789, message_seq: 71324, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "Metasequoia [BG5FNA][星压抑][白金燐子应援团]", role: "member", title: "" }, raw_message: "/q", font: 14, sub_type: "normal", message: [Text { text: "/q" }], message_format: "array", post_type: "message", group_id: 965954401 }), message: None, api_response: None } }
+2025-07-30T11:55:13.547237Z DEBUG CiRCLE_sat_bot_server: Chat from CiRCLE_sat_bot_core to CiRCLE_sat_bot_server: MsgContent {
+    command: Some(
+        "q",
+    ),
+    payload: Some(
+        BinMessageEvent {
+            self_id: 3906406150,
+            user_id: 3386134415,
+            time: 1753876513,
+            message_id: 2077033789,
+            message_seq: 71324,
+            message_type: "group",
+            sender: Sender {
+                user_id: 3386134415,
+                nickname: "Metasequoia",
+                card: "Metasequoia [BG5FNA][星压抑][白金燐子应援团]",
+                role: "member",
+                title: "",
+            },
+            raw_message: "/q",
+            font: 14,
+            sub_type: "normal",
+            message: [
+                Text {
+                    text: "/q",
+                },
+            ],
+            message_format: "array",
+            post_type: "message",
+            group_id: 965954401,
+        },
+    ),
+    message: None,
+    api_response: None,
+}
+2025-07-30T11:55:17.663038Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:55:22.662796Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:55:27.654632Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:55:32.662448Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:55:37.663551Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:55:42.659298Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:55:47.661463Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:55:52.664836Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:55:57.657109Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:56:02.657442Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:56:07.661483Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:56:12.655250Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:56:17.659476Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:56:22.658051Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:56:27.651704Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:56:32.665674Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:56:37.660644Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:56:42.650632Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:56:47.655658Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:56:52.665877Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:56:57.655359Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:57:02.655768Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:57:07.650136Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:57:12.650774Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:57:17.655653Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:57:22.655983Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:57:27.651698Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:57:32.650018Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:57:37.659015Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:57:42.659211Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:57:47.660359Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:57:52.665048Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:57:57.662087Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:58:02.664918Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:58:07.656836Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:58:12.656904Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:58:17.659872Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:58:22.662555Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:58:27.663848Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:58:32.662690Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:58:37.664818Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:58:42.654813Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:58:47.657683Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:58:52.653644Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:58:57.663473Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:59:02.663807Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:59:07.653089Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:59:12.658559Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:59:17.665103Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:59:22.659565Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:59:27.661128Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:59:32.663237Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:59:37.652562Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:59:42.659803Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:59:47.662950Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:59:52.664603Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T11:59:57.661208Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:00:02.653356Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:00:07.665138Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:00:10.769029Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753876810, message_id: 1744528723, message_seq: 71332, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "Metasequoia [BG5FNA][星压抑][白金燐子应援团]", role: "member", title: "" }, raw_message: "/q", font: 14, sub_type: "normal", message: [Text { text: "/q" }], message_format: "array", post_type: "message", group_id: 965954401 }), message: None, api_response: None } }
+2025-07-30T12:00:10.769207Z DEBUG CiRCLE_sat_bot_server: Chat from CiRCLE_sat_bot_core to CiRCLE_sat_bot_server: MsgContent {
+    command: Some(
+        "q",
+    ),
+    payload: Some(
+        BinMessageEvent {
+            self_id: 3906406150,
+            user_id: 3386134415,
+            time: 1753876810,
+            message_id: 1744528723,
+            message_seq: 71332,
+            message_type: "group",
+            sender: Sender {
+                user_id: 3386134415,
+                nickname: "Metasequoia",
+                card: "Metasequoia [BG5FNA][星压抑][白金燐子应援团]",
+                role: "member",
+                title: "",
+            },
+            raw_message: "/q",
+            font: 14,
+            sub_type: "normal",
+            message: [
+                Text {
+                    text: "/q",
+                },
+            ],
+            message_format: "array",
+            post_type: "message",
+            group_id: 965954401,
+        },
+    ),
+    message: None,
+    api_response: None,
+}
+2025-07-30T12:00:12.657516Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:00:17.663730Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:07:03.312530Z  INFO CiRCLE_sat_bot_server: 日志初始化成功
+2025-07-30T12:07:03.323236Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:07:08.319388Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:07:09.845772Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753877229, message_id: 46123517, message_seq: 4549395, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "BG5FNA 暑期pl09 qrt中", role: "member", title: "" }, raw_message: "/q rinko", font: 14, sub_type: "normal", message: [Text { text: "/q rinko" }], message_format: "array", post_type: "message", group_id: 95339567 }), message: None, api_response: None } }
+2025-07-30T12:07:13.325753Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:07:18.321499Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:07:23.319528Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:07:28.322478Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:07:33.327370Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:07:38.322427Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:07:43.330416Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:07:48.332784Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:07:53.332189Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:07:58.327509Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:08:03.331068Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:08:08.330640Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:08:13.330501Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:08:18.325764Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:08:23.328054Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:08:28.320592Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:08:33.323473Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:08:38.323506Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:08:43.323436Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:08:48.323301Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:08:53.323451Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:08:58.323199Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:09:03.320131Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:09:08.318210Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:09:13.332013Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:09:18.331349Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:09:23.325296Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:09:28.331593Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:09:33.323554Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:09:38.320487Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:09:43.319229Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:09:48.323047Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:09:53.327487Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:09:58.323183Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:10:03.328854Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:10:08.327410Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:10:13.331777Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:10:18.319170Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:10:23.331619Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:10:28.331333Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:10:33.331651Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:10:38.331989Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:10:43.327587Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:10:48.328372Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:10:53.322014Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:10:58.329296Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:11:03.317629Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:11:08.323784Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:11:13.330154Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:11:18.325856Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:11:23.320572Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:11:28.330227Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:11:33.330229Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:11:38.318758Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:11:43.323197Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:11:48.323718Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:11:53.319173Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:11:58.326698Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:12:03.323493Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:12:08.321134Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:12:13.319235Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:12:18.318714Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:12:23.328605Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:12:28.320589Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:12:33.326795Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:12:38.330608Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:12:43.324833Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:12:48.321991Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:12:53.324462Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:12:58.320722Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:13:03.318458Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:13:08.326584Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:13:13.326475Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:13:18.327463Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:13:23.321269Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:13:28.325722Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:13:33.325510Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:13:38.318793Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:13:43.321949Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:13:48.318452Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:13:53.327929Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:13:58.323291Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:14:03.330446Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:14:08.319760Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:14:13.327501Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:14:18.332073Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:14:23.331705Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:14:28.322600Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:14:33.320880Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:14:38.329900Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:14:43.324485Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:14:48.332256Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:14:53.326022Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:14:58.324628Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:15:03.330551Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:15:08.331638Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:15:13.327893Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:15:18.327808Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:15:23.319475Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:15:28.316958Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:15:33.318671Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:15:38.327641Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:15:43.320219Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:15:46.428327Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3478298786, time: 1753877746, message_id: 1629569137, message_seq: 4549433, message_type: "group", sender: Sender { user_id: 3478298786, nickname: "疏烟明月", card: "BG7ZDQ客席 - 振荡器", role: "member", title: "" }, raw_message: "/q rinko", font: 14, sub_type: "normal", message: [Text { text: "/q rinko" }], message_format: "array", post_type: "message", group_id: 95339567 }), message: None, api_response: None } }
+2025-07-30T12:15:48.320812Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:15:53.323688Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:15:58.329789Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:16:03.322347Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:16:08.326414Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:16:09.286774Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 2928106245, time: 1753877769, message_id: 220151223, message_seq: 4549435, message_type: "group", sender: Sender { user_id: 2928106245, nickname: "鸽子", card: "鸽子B2/BD1BGB/ON90/预售ON91/传lotw/忘回卡记得叫", role: "member", title: "" }, raw_message: "/q ISS", font: 14, sub_type: "normal", message: [Text { text: "/q ISS" }], message_format: "array", post_type: "message", group_id: 95339567 }), message: None, api_response: None } }
+2025-07-30T12:16:13.318357Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:16:18.319861Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:16:23.333123Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:16:28.322412Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:16:33.323068Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:16:38.325568Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:16:43.329523Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:16:48.325448Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:16:53.327266Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:16:58.323748Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:17:03.327360Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:17:08.324569Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:17:13.329535Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:17:18.325461Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:17:23.330251Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:17:28.321433Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:17:33.330058Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:17:38.319931Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:17:43.331370Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:17:47.859702Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3200456174, time: 1753877867, message_id: 1147694881, message_seq: 4549450, message_type: "group", sender: Sender { user_id: 3200456174, nickname: "无锡焊铅丝", card: "BD3QID OM77gs买不起灯架", role: "member", title: "" }, raw_message: "/q", font: 14, sub_type: "normal", message: [Text { text: "/q" }], message_format: "array", post_type: "message", group_id: 95339567 }), message: None, api_response: None } }
+2025-07-30T12:17:48.325712Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:17:53.322835Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:17:58.330226Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:18:03.319090Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:18:08.322247Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:18:13.322426Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:18:18.319940Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:18:23.318504Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:18:28.321243Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:18:33.322445Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:18:38.332402Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:18:43.317901Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:18:48.324455Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:18:53.319062Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:18:58.318550Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:19:03.324398Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:19:08.331765Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:19:13.332072Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:19:18.317920Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:19:23.327853Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:19:28.331522Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:19:33.323484Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:19:38.325426Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:19:43.318659Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:19:48.321118Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:19:53.319033Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:19:58.318264Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:20:03.318629Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:20:08.319427Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:20:13.327795Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:20:18.317022Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:20:23.331676Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:20:28.320231Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:20:33.318769Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:20:38.329542Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:20:43.324944Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:20:48.321123Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:20:53.327460Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:20:58.317763Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:21:03.331590Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:21:08.328700Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:21:13.324489Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:21:18.330514Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:21:23.325447Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:21:28.321553Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:21:33.325612Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:21:38.333239Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:21:43.324682Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:21:48.321800Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:21:53.319232Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:21:58.317277Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:22:03.333807Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:22:08.324188Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:22:13.328188Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:22:18.327176Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:22:23.322177Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:22:28.324311Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:22:33.320065Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:22:38.329483Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:22:43.319808Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:22:48.326868Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:22:53.327400Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:22:58.320118Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:23:03.327264Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:23:08.329264Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:23:13.326657Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:23:18.330405Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:23:23.329718Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:23:28.328029Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:23:33.318107Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:23:38.327731Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:23:43.330390Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:23:48.322717Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:23:53.328470Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:23:58.320143Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:24:03.324240Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:24:08.324238Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:24:13.332162Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:24:18.319278Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:24:23.327041Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:24:28.331637Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:24:33.318300Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:24:38.318354Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:24:43.327299Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:24:48.318512Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:24:53.317922Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:24:58.320483Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:25:03.332115Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:25:08.323968Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:25:13.323496Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:25:18.321090Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:25:23.320095Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:25:28.321854Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:25:33.327051Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:25:38.318891Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:25:43.322119Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:25:48.323102Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:25:53.321206Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:25:58.329809Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:26:03.327089Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:26:08.326172Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:26:13.317360Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:26:18.329292Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:26:23.325495Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:26:28.329048Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:26:33.318957Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:26:38.325424Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:26:43.321016Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:26:48.319209Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:26:53.330779Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:26:58.318410Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:27:03.322880Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:27:08.319745Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:27:13.326924Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:27:18.329193Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:27:23.321500Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:27:28.324567Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:27:33.322805Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:27:38.317903Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:27:43.320273Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:27:48.322881Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:27:53.317559Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:27:58.328632Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:28:03.323998Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:28:08.331739Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:28:13.329427Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:28:18.330204Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:28:23.324256Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:28:28.323248Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:28:33.328466Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:28:38.322188Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:28:43.329133Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:28:48.327752Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:28:53.320175Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:28:58.317435Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:29:03.331565Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:29:08.329529Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:29:13.323793Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:29:18.324516Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:29:23.326480Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:29:28.329283Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:29:33.325122Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:29:38.332221Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:29:43.326119Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:29:48.321988Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:29:53.331686Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:29:58.319314Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:30:03.323844Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:30:08.326064Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:30:13.322226Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:30:18.325526Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:30:23.325967Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:30:28.329936Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:30:33.319604Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:30:38.326988Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:30:43.323974Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:30:48.321746Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:30:53.331797Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:30:58.326413Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:31:03.322901Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:31:08.318322Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:31:13.318144Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:31:18.329649Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:31:23.327149Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:31:28.328454Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:31:33.326728Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:31:38.324043Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:31:43.319840Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:31:48.326025Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:31:53.318931Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:31:58.323544Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:32:03.320277Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:32:08.317460Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:32:13.321130Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:32:18.325984Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:32:23.319241Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:32:28.317960Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:32:33.320965Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:32:38.331612Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:32:43.321405Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:32:48.325749Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:32:53.332091Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:32:58.318972Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:33:03.328924Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:33:08.319538Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:33:13.320608Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:33:18.322464Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:33:23.326488Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:33:28.326120Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:33:33.325317Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:33:38.320839Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:33:43.318526Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:33:48.320876Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:33:53.329345Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:33:58.330786Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:34:03.321724Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:34:08.329896Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:34:13.317188Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:34:18.322743Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:34:23.318039Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:34:28.328494Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:34:33.327187Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:34:38.318874Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:34:43.326394Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:34:48.324052Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:34:53.322579Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:34:58.331521Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:35:03.329875Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:35:08.332153Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:35:13.324022Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:35:18.328408Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:35:23.325132Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:35:28.324998Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:35:33.320330Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:35:38.328770Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:35:43.322628Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:35:48.320854Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:35:53.321227Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:35:58.327789Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:36:03.323159Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:36:08.329208Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:36:13.321093Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:36:18.327295Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:36:23.316939Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:36:28.332106Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:36:33.322175Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:36:38.321093Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:36:43.324026Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:36:48.319739Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:36:53.323268Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:36:58.318418Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:37:03.326449Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:37:08.325048Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T12:37:13.319061Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T13:40:57.325029Z  INFO CiRCLE_sat_bot_server: 日志初始化成功
+2025-07-30T14:01:30.098829Z  INFO CiRCLE_sat_bot_server: 日志初始化成功
+2025-07-30T14:01:30.113371Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:01:35.104165Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:01:40.116682Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:01:45.110700Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:01:46.276329Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753884106, message_id: 2061264909, message_seq: 71338, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "Metasequoia [BG5FNA][星压抑][白金燐子应援团]", role: "member", title: "" }, raw_message: "/q", font: 14, sub_type: "normal", message: [Text { text: "/q" }], message_format: "array", post_type: "message", group_id: 965954401 }), message: None, api_response: None } }
+2025-07-30T14:01:50.118924Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:01:55.105502Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:02:00.113725Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:02:05.117659Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:02:10.115934Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:02:15.114790Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:02:20.003618Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753884140, message_id: 2116396094, message_seq: 3506, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "", role: "owner", title: "" }, raw_message: "/q 1", font: 14, sub_type: "normal", message: [Text { text: "/q 1" }], message_format: "array", post_type: "message", group_id: 926964196 }), message: None, api_response: None } }
+2025-07-30T14:02:20.117478Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:02:21.788559Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753884141, message_id: 1487928073, message_seq: 3508, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "", role: "owner", title: "" }, raw_message: "/q 2", font: 14, sub_type: "normal", message: [Text { text: "/q 2" }], message_format: "array", post_type: "message", group_id: 926964196 }), message: None, api_response: None } }
+2025-07-30T14:02:23.739114Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753884143, message_id: 957558126, message_seq: 3510, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "", role: "owner", title: "" }, raw_message: "/q 4", font: 14, sub_type: "normal", message: [Text { text: "/q 4" }], message_format: "array", post_type: "message", group_id: 926964196 }), message: None, api_response: None } }
+2025-07-30T14:02:25.117960Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:02:26.005625Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753884146, message_id: 597797766, message_seq: 3512, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "", role: "owner", title: "" }, raw_message: "/q 3", font: 14, sub_type: "normal", message: [Text { text: "/q 3" }], message_format: "array", post_type: "message", group_id: 926964196 }), message: None, api_response: None } }
+2025-07-30T14:02:28.205961Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753884148, message_id: 1376378164, message_seq: 3514, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "", role: "owner", title: "" }, raw_message: "/q 5", font: 14, sub_type: "normal", message: [Text { text: "/q 5" }], message_format: "array", post_type: "message", group_id: 926964196 }), message: None, api_response: None } }
+2025-07-30T14:02:30.098188Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753884150, message_id: 896669037, message_seq: 3516, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "", role: "owner", title: "" }, raw_message: "/q 6", font: 14, sub_type: "normal", message: [Text { text: "/q 6" }], message_format: "array", post_type: "message", group_id: 926964196 }), message: None, api_response: None } }
+2025-07-30T14:02:30.115620Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:02:31.710684Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753884151, message_id: 1187558289, message_seq: 3518, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "", role: "owner", title: "" }, raw_message: "/q 7", font: 14, sub_type: "normal", message: [Text { text: "/q 7" }], message_format: "array", post_type: "message", group_id: 926964196 }), message: None, api_response: None } }
+2025-07-30T14:02:35.113460Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:02:40.109337Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:02:45.119104Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:02:50.115237Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:02:55.115690Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:03:00.105525Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:03:05.112605Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:03:10.115629Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:03:15.109936Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:03:20.117466Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:03:25.112291Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:03:30.118942Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:03:35.118746Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:03:40.117299Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:03:40.725703Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753884220, message_id: 1356819285, message_seq: 71341, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "Metasequoia [BG5FNA][星压抑][白金燐子应援团]", role: "member", title: "" }, raw_message: "/q 1", font: 14, sub_type: "normal", message: [Text { text: "/q 1" }], message_format: "array", post_type: "message", group_id: 965954401 }), message: None, api_response: None } }
+2025-07-30T14:03:43.184799Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753884223, message_id: 670273473, message_seq: 71343, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "Metasequoia [BG5FNA][星压抑][白金燐子应援团]", role: "member", title: "" }, raw_message: "/q 2", font: 14, sub_type: "normal", message: [Text { text: "/q 2" }], message_format: "array", post_type: "message", group_id: 965954401 }), message: None, api_response: None } }
+2025-07-30T14:03:44.431792Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753884224, message_id: 1865964046, message_seq: 71345, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "Metasequoia [BG5FNA][星压抑][白金燐子应援团]", role: "member", title: "" }, raw_message: "/q 3", font: 14, sub_type: "normal", message: [Text { text: "/q 3" }], message_format: "array", post_type: "message", group_id: 965954401 }), message: None, api_response: None } }
+2025-07-30T14:03:45.105491Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:03:46.363659Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753884226, message_id: 78873444, message_seq: 71347, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "Metasequoia [BG5FNA][星压抑][白金燐子应援团]", role: "member", title: "" }, raw_message: "/q 4", font: 14, sub_type: "normal", message: [Text { text: "/q 4" }], message_format: "array", post_type: "message", group_id: 965954401 }), message: None, api_response: None } }
+2025-07-30T14:03:47.768060Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753884227, message_id: 1726894717, message_seq: 71349, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "Metasequoia [BG5FNA][星压抑][白金燐子应援团]", role: "member", title: "" }, raw_message: "/q 5", font: 14, sub_type: "normal", message: [Text { text: "/q 5" }], message_format: "array", post_type: "message", group_id: 965954401 }), message: None, api_response: None } }
+2025-07-30T14:03:49.328617Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753884229, message_id: 1779838590, message_seq: 71351, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "Metasequoia [BG5FNA][星压抑][白金燐子应援团]", role: "member", title: "" }, raw_message: "/q 6", font: 14, sub_type: "normal", message: [Text { text: "/q 6" }], message_format: "array", post_type: "message", group_id: 965954401 }), message: None, api_response: None } }
+2025-07-30T14:03:50.112554Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:03:51.263038Z DEBUG CiRCLE_sat_bot_server: Received message: Chat { from: "CiRCLE_sat_bot_core", to: "CiRCLE_sat_bot_server", content: MsgContent { command: Some("q"), payload: Some(BinMessageEvent { self_id: 3906406150, user_id: 3386134415, time: 1753884231, message_id: 725192783, message_seq: 71353, message_type: "group", sender: Sender { user_id: 3386134415, nickname: "Metasequoia", card: "Metasequoia [BG5FNA][星压抑][白金燐子应援团]", role: "member", title: "" }, raw_message: "/q 7", font: 14, sub_type: "normal", message: [Text { text: "/q 7" }], message_format: "array", post_type: "message", group_id: 965954401 }), message: None, api_response: None } }
+2025-07-30T14:03:55.106206Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:04:00.105535Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:04:05.111803Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:04:10.111975Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:04:15.111352Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:04:20.110552Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:04:25.111341Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:04:30.109873Z DEBUG CiRCLE_sat_bot_server: Received message: Heartbeat
+2025-07-30T14:04:34.360796Z ERROR CiRCLE_sat_bot_server: Error receiving message from stream: 远程主机强迫关闭了一个现有的连接。 (os error 10054)

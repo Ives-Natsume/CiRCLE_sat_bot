@@ -1,0 +1,18 @@
+{
+  "config_file_empty": "Config file is empty",
+  "config_file_parse_error": "Failed to parse config file",
+  "config_file_read_error": "Failed to read config file",
+  "config_reload_error": "Failed to reload configuration",
+  "config_reload_success": "Configuration reloaded successfully",
+  "config_reload_unexpected_error": "Unexpected error while reloading configuration",
+  "log_file_created": "Log file created",
+  "log_file_deleted": "Log file deleted",
+  "log_file_deleted_error": "Log cleanup failed",
+  "log_file_empty": "Log file is empty",
+  "log_file_not_found": "Log file not found",
+  "log_file_read_error": "Error reading log file",
+  "log_initialized": "Logger initialized",
+  "sse_connect_success": "Connected to SSE server",
+  "sse_connecting": "Connecting to SSE server",
+  "sse_too_many_msgs": "Too many concurrent messages, dropping message"
+}

@@ -1,0 +1,18 @@
+{
+  "config_file_empty": "配置文件为空",
+  "config_file_parse_error": "配置文件解析失败",
+  "config_file_read_error": "配置文件读取失败",
+  "config_reload_error": "配置文件修改失败",
+  "config_reload_success": "配置文件修改成功",
+  "config_reload_unexpected_error": "修改配置文件时发生了未知错误",
+  "log_file_created": "日志文件已创建",
+  "log_file_deleted": "日志文件已删除",
+  "log_file_deleted_error": "日志清理失败",
+  "log_file_empty": "日志文件为空",
+  "log_file_not_found": "日志文件未找到",
+  "log_file_read_error": "读取日志文件时出错",
+  "log_initialized": "日志初始化成功",
+  "sse_connect_success": "SSE服务器已连接",
+  "sse_connecting": "正在连接SSE服务器",
+  "sse_too_many_msgs": "消息并发数过多，丢弃部分消息"
+}

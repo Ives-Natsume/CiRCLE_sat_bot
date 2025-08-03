@@ -1,0 +1,21 @@
+{
+    "help": [
+        "# 可用命令\n",
+        "'/q' 或 '/query'\n- 查询卫星状态\n- 数据来自AMSAT，请注意鉴别\n",
+        "'/s' 或 '/sun'\n- 查询太阳活动\n",
+        "'/about'\n- 关于Rinko\n",
+        "'/help'\n- 显示帮助信息\n",
+        "# 使用帮助\n",
+        "直接在群聊中输入命令或者@Rinko\n",
+        "这里是Rinko，今天也要努力工作喵~"
+    ],
+    "about": [
+        "这里是Rinko喵~Roselia的键盘担当\n",
+        "CiRCLE Satellite Bot",
+        "Version: 0.1.1 Rev",
+        "Contributors: BG5FNA BA8AFK BD8FTG\n",
+        "缓慢开发中，后续将添加过境查询等功能",
+        "欢迎各位老师issue和star\n",
+        "这里是Rinko，今天也要努力工作喵~"
+    ]
+}
