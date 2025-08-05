@@ -16,7 +16,7 @@ pub struct LoggerGuard(WorkerGuard);
 pub fn init_logging(log_dir: impl AsRef<Path>, prefix: &str) -> LoggerGuard {
     let log_dir = log_dir.as_ref().to_path_buf();
     let builder = EnvFilter::builder()
-        .with_default_directive("CiRCLE_sat_bot_server=debug".parse().unwrap());
+        .with_default_directive("CiRCLE_sat_bot_server=info".parse().unwrap());
 
     let console_filter = builder.clone().parse_lossy(&std::env::var("RUST_LOG").unwrap_or_default());
     let file_filter = builder.parse_lossy(&std::env::var("RUST_LOG").unwrap_or_default());

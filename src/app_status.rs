@@ -1,5 +1,6 @@
+#![allow(unused)]
 use crate::fs::handler;
-use crate::config::{Config, Doc};
+use crate::config::Config;
 use crate::msg::group_msg::send_group_msg;
 use crate::response::ApiResponse;
 use crate::socket::BotMessage;
@@ -18,7 +19,7 @@ pub type BotMessageSender = Arc<tokio::sync::Mutex<channels::Sender<BotMessage, 
 #[derive(Clone, Debug)]
 pub struct AppStatus {
     pub config: Arc<RwLock<Config>>,
-    pub file_tx: mpsc::Sender<handler::FileRequest>,
+    pub file_tx: Arc<RwLock<mpsc::Sender<handler::FileRequest>>>,
     pub botmsg_tx: Arc<RwLock<Option<BotMessageSender>>>,
 }
 

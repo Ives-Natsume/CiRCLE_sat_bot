@@ -1,13 +1,14 @@
-use anyhow::Ok;
+#![allow(unused)]
 use tokio::{
     fs::File,
     io::{AsyncReadExt, AsyncWriteExt},
-    sync::{mpsc, oneshot}
+    sync::{mpsc, oneshot, RwLock},
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::sync::Arc;
 use std::path::PathBuf;
 use crate::i18n;
+use crate::config::{Config, CONFIG_PATH};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FileFormat {
@@ -98,12 +99,23 @@ pub async fn file_manager(mut rx: mpsc::Receiver<FileRequest>) {
             }
             FileRequest::Write { path, data, responder, .. } => {
                 let result = async {
+                    if let Some(parent) = path.parent() {
+                        if !parent.exists() {
+                            tokio::fs::create_dir_all(parent).await.map_err(|e| {
+                                anyhow::anyhow!(
+                                    "Failed to create directory {}: {}",
+                                    parent.display(),
+                                    e
+                                )
+                            })?;
+                        }
+                    }
                     let mut file = File::create(&path)
                         .await
                         .map_err(|e| anyhow::Error::new(e))?;
                     match data {
                         FileData::Json(json_data) => {
-                            let json_str = serde_json::to_string(&json_data)
+                            let json_str = serde_json::to_string_pretty(&json_data)
                                 .map_err(|e| anyhow::Error::new(e))?;
                             file.write_all(json_str.as_bytes()).await?;
                         },
@@ -151,4 +163,38 @@ pub async fn file_manager(mut rx: mpsc::Receiver<FileRequest>) {
             }
         }
     }
+}
+
+pub async fn read_config(
+    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
+) -> anyhow::Result<Config> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let request = FileRequest::Read {
+        path: CONFIG_PATH.into(),
+        format: FileFormat::Json,
+        responder: tx,
+    };
+
+    let tx_filerequest = tx_filerequest.write().await;
+    if let Err(e) = tx_filerequest.send(request).await {
+        return Err(anyhow::anyhow!("Failed to send file read request: {}", e));
+    }
+
+    let file_result = match rx.await {
+        Ok(result) => result,
+        Err(e) => return Err(anyhow::anyhow!("Failed to receive file data: {}", e)),
+    };
+
+    let file_data_raw = match file_result {
+        Ok(FileData::Json(data)) => data,
+        Ok(_) => return Err(anyhow::anyhow!("Unexpected file format received")),
+        Err(e) => return Err(anyhow::anyhow!("Failed to receive file data: {}", e)),
+    };
+
+    let config: Config = match serde_json::from_value(file_data_raw) {
+        Ok(data) => data,
+        Err(e) => return Err(anyhow::anyhow!("Failed to parse JSON data: {}", e)),
+    };
+
+    Ok(config)
 }

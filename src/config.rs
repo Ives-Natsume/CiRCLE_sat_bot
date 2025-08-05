@@ -1,3 +1,4 @@
+#![allow(unused)]
 use serde::{Deserialize, Serialize};
 use std::sync::{
     Arc
@@ -17,6 +18,7 @@ pub struct Config {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BotConfig {
     pub url: String,
+    pub listen_addr: String,
     pub qq_id: String,
     pub group_id: Vec<u64>,
     pub admin_id: Vec<u64>,
@@ -27,7 +29,7 @@ pub struct BackendConfig {
     pub timeout: u64,
     pub concurrent_limit: u64,
     /// 该参数中的群聊开放过境查询相关模块
-    pub special_group_id: Option<Vec<u64>>,
+    pub pass_predict_group_id: Option<Vec<u64>>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -101,59 +103,4 @@ pub fn get_config() -> ApiResponse<Config> {
 pub struct Doc {
     pub help: Vec<String>,
     pub about: Vec<String>,
-}
-
-pub trait DocProvider: Send + Sync + 'static {
-    fn get_doc(&self) -> ApiResponse<Doc>;
-}
-
-pub struct FileDocProvider {
-    path: String,
-}
-
-impl FileDocProvider {
-    pub fn new(path: impl Into<String>) -> Self {
-        Self { path: path.into() }
-    }
-
-    fn load_doc(&self) -> ApiResponse<Doc> {
-        let doc_str = match std::fs::read_to_string(&self.path) {
-            Ok(content) => content,
-            Err(e) => {
-                let error_msg = format!("{} {}: {}", self.path, i18n::text("doc_file_read_error"), e);
-                tracing::error!("{}", error_msg);
-                return ApiResponse::error(error_msg);
-            }
-        };
-
-        if doc_str.is_empty() {
-            let error_msg = format!("{}: {}", i18n::text("doc_file_empty"), self.path);
-            tracing::error!("{}", error_msg);
-            return ApiResponse::error(error_msg);
-        }
-
-        match serde_json::from_str(&doc_str) {
-            Ok(doc) => ApiResponse::ok(doc),
-            Err(e) => {
-                let error_msg = format!("{}: {}", i18n::text("doc_file_parse_error"), e);
-                tracing::error!("{}", error_msg);
-                ApiResponse::error(error_msg)
-            }
-        }
-    }
-}
-
-impl DocProvider for FileDocProvider {
-    fn get_doc(&self) -> ApiResponse<Doc> {
-        self.load_doc()
-    }
-}
-
-lazy_static::lazy_static! {
-    static ref DOC_PROVIDER: Arc<dyn DocProvider> =
-        Arc::new(FileDocProvider::new("/locales/doc.json"));
-}
-
-pub fn get_doc() -> ApiResponse<Doc> {
-    DOC_PROVIDER.get_doc()
 }

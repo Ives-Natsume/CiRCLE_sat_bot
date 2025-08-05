@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ApiResponse<T> {
     pub success: bool,
     /// Carries the data if the operation was successful, could be a response message
@@ -26,6 +26,7 @@ impl<T> ApiResponse<T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn new(success: bool, data: T, message: impl Into<String>) -> Self {
         Self {
             success,
@@ -33,8 +34,17 @@ impl<T> ApiResponse<T> {
             message: Some(message.into()),
         }
     }
+
+    pub fn empty() -> Self {
+        Self {
+            success: false,
+            data: None,
+            message: None,
+        }
+    }
 }
 
+#[allow(dead_code)]
 pub fn json_response<T: Serialize>(
     success: bool,
     message: Option<String>,

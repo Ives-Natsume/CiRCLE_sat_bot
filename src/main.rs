@@ -11,13 +11,15 @@ mod module;
 use std::{
     sync::Arc,
 };
-use channels::channel;
 use tokio::net::TcpStream;
-use tokio::sync::{mpsc, RwLock};
-use crate::fs::handler::{FileRequest, FileFormat, FileData};
-use crate::socket::{BotMessage, MsgContent};
+use tokio::sync::RwLock;
+use channels::channel;
+use crate::socket::BotMessage;
 use crate::module::handler::router;
-use crate::response::ApiResponse;
+use crate::socket::MsgContent;
+use crate::module::amsat::official_report::amsat_data_handler;
+use crate::module::solar_image::get_image;
+use crate::module::scheduled::scheduled_task_handler;
 
 pub const CONFIG_FILE_PATH: &str = "config.json";
 pub const DOC_FILE_PATH: &str = "locales/doc.json";
@@ -30,28 +32,46 @@ async fn main() -> anyhow::Result<()> {
     let _logger = logger::init_logging("logs", "CiRCLE_sat_bot_server");
     tracing::info!("{}", i18n::text("log_initialized"));
 
-    // connect to bot core at 3310 port
-    let stream = TcpStream::connect("127.0.0.1:3310").await?;
+    let app_status = socket::initialize_app_status().await;
+    let listen_addr = app_status.config.read().await.bot_config.listen_addr.clone();
+    let stream = TcpStream::connect(listen_addr).await?;
     let (r, w) = stream.into_split();
-    // let (mut tx, mut rx) = channel::<BotMessage, _, _>(r, w);
-    // let tx = Arc::new(RwLock::new(tx));
     let (mut tx_sink, mut rx_stream) = channel::<BotMessage, _, _>(r, w);
-    let (tx_filerequest, rx_filerequest) = tokio::sync::mpsc::channel::<FileRequest>(100);
+    let app_status = Arc::new(app_status);
+    let tx_botmsg = Arc::new(RwLock::new(tx_sink));
+    
+    tokio::spawn({
+        let app_status_clone = Arc::clone(&app_status);
+        async move {
+            amsat_data_handler(&app_status_clone).await;
+            match get_image::get_solar_image(&app_status_clone).await {
+                Ok(_) => {
+                    tracing::info!("Solar image updated successfully");
+                }
+                Err(e) => {
+                    tracing::error!("Failed to update solar image: {}", e);
+                }
+            }
+        }
+    });
 
-    let tx_shared = Arc::new(RwLock::new(tx_sink));
-    let tx_filerequest_shared = Arc::new(RwLock::new(tx_filerequest));
+    let app_status_clone = Arc::clone(&app_status);
+    tokio::spawn(async move {
+        scheduled_task_handler(&app_status_clone).await;
+    });
+
     loop {
         match rx_stream.recv().await { // Or rx_stream.next().await if using futures::StreamExt
             Ok(msg) => { // Use Some(msg) if Framed::next() returns Option<Result<T, E>>
-                tracing::debug!("Received message: {:?}", msg);
-                let tx_clone_for_task = Arc::clone(&tx_shared); // Clone Arc for each task
-                let tx_filerequest_clone = Arc::clone(&tx_filerequest_shared);
+                //tracing::debug!("Received message: {:?}", msg);
+                let app_status_clone = Arc::clone(&app_status);
+                let tx_botmsg = Arc::clone(&tx_botmsg);
 
                 tokio::spawn(async move {
                     match msg {
                         socket::BotMessage::Heartbeat => {
                             // Check if send is successful, handle error if not.
-                            let mut tx = tx_clone_for_task.write().await;
+                            let mut tx = tx_botmsg.write().await;
                             if let Err(e) = tx.send(socket::BotMessage::Pong).await {
                                 tracing::error!("Failed to send Pong: {}", e);
                             }
@@ -62,9 +82,9 @@ async fn main() -> anyhow::Result<()> {
                         socket::BotMessage::Chat { content, .. } => {
                             let response = router::bot_message_handler(
                                 content.clone(),
-                                tx_filerequest_clone.clone()
+                                app_status_clone.clone()
                             ).await;
-                            let mut tx = tx_clone_for_task.write().await;
+                            let mut tx = tx_botmsg.write().await;
                             let response_content = MsgContent {
                                 command: None,
                                 payload: content.payload.clone(),
@@ -88,41 +108,6 @@ async fn main() -> anyhow::Result<()> {
             }
         }
     }
-
-    // loop {
-    //     match rx.recv().await {
-    //         Ok(msg) => {
-    //             tracing::debug!("Received message: {:?}", msg);
-    //             match msg {
-    //                 socket::BotMessage::Heartbeat => {
-    //                     let tx_clone = Arc::clone(&tx);
-    //                     tx_clone.write().await.send(socket::BotMessage::Pong).await.unwrap();
-    //                 }
-    //                 socket::BotMessage::Pong => {}
-    //                 socket::BotMessage::Chat { content, .. } => {
-    //                     let response = router::bot_message_handler(content.clone()).await;
-    //                     // send response back to bot core
-    //                     let tx_clone = Arc::clone(&tx);
-    //                     let content = MsgContent {
-    //                         command: None,
-    //                         payload: content.payload.clone(),
-    //                         message: None,
-    //                         api_response: Some(response),
-    //                     };
-    //                     tx_clone.write().await.send(socket::BotMessage::Chat {
-    //                         from: "CiRCLE_sat_bot_server".to_string(),
-    //                         to: "CiRCLE_sat_bot_core".to_string(),
-    //                         content,
-    //                     }).await.unwrap();
-    //                 }
-    //             }
-    //         }
-    //         Err(e) => {
-    //             tracing::error!("Error receiving message: {}", e);
-    //             break;
-    //         }
-    //     }
-    // }
 
     Ok(())
 }

@@ -1,24 +1,15 @@
 use crate::{
-    msg::prelude::{
-        FromBinMessageEvent,
-        BinMessageEvent,
-        MessageEvent,
-    },
-    response::ApiResponse,
-    socket::{BotMessage, MsgContent},
-    fs::handler::{
-        FileRequest,
-        FileFormat,
-        FileData,
-    }
+    app_status::AppStatus, module::{amsat::official_report::query_satellite_status, solar_image}, msg::prelude::{
+        BinMessageEvent, FromBinMessageEvent, MessageElement, MessageEvent
+    }, response::ApiResponse, socket::MsgContent
 };
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 pub async fn bot_message_handler(
     msg: MsgContent,
-    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
+    app_status: Arc<AppStatus>,
 ) -> ApiResponse<Vec<String>> {
+    #[allow(unused_mut)]
     let mut response: ApiResponse<Vec<String>> = ApiResponse {
         success: false,
         data: None,
@@ -38,26 +29,71 @@ pub async fn bot_message_handler(
     };
 
     let payload = BinMessageEvent::from_bin_message_event(payload);
-    router(command, payload, tx_filerequest).await
+    router(command, payload, app_status).await
 }
 
 async fn router(
-    command: String,
+    _command: String,
     payload: MessageEvent,
-    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
+    app_status: Arc<AppStatus>,
 ) -> ApiResponse<Vec<String>> {
     let mut response: ApiResponse<Vec<String>> = ApiResponse {
         success: false,
         data: None,
         message: None,
     };
+
+    let mut message_text: String = String::new();
+    for elem in &payload.message {
+        if let MessageElement::Text { text } = elem {
+            message_text.push_str(text);
+        }
+    }
+    let text = message_text.trim().to_string();
+    let (command, args) = get_command_and_args(&text);
+
     match command.as_str() {
         "q" | "query" => {
-            // unfinished
-            response.message = Some("当前为Rinko重构版测试阶段，Rinko的服务器收到了喵，但是功能暂时未完成呢~".to_string());
-            response.success = true;
+            response = query_satellite_status(&args, &app_status).await;
+        }
+        "s" | "sun" => {
+            let uri = match solar_image::get_image::file_uri("data/pic/solar_image_latest.png") {
+                Ok(uri) => uri,
+                Err(e) => {
+                    tracing::error!("Failed to encode solar image path: {}", e);
+                    return response;
+                }
+            };
+            response = ApiResponse {
+                success: true,
+                data: Some(vec![uri]),
+                message: Some("solar image".to_string()),
+            };
         }
         _ => {}
     }
     response
+}
+
+/// - Split by whitespace and normalize
+/// - Keep CJK characters intact
+pub fn _string_normalize(input: &str) -> Vec<String> {
+    input
+        .split_whitespace()
+        .map(|s| s.to_lowercase())
+        .collect()
+}
+
+/// Get the command and arguments from the input string
+/// - Supports commands like `/command args`
+/// - Returns a tuple of (command, args)
+pub fn get_command_and_args(input: &str) -> (String, String) {
+    let re = regex::Regex::new(r"^\s*/(\w+)(?:\s+([\s\S]*))?$").unwrap();
+    if let Some(caps) = re.captures(input) {
+        let command = caps.get(1).map_or("", |m| m.as_str());
+        let args = caps.get(2).map_or("", |m| m.as_str());
+        (command.to_string(), args.to_string())
+    } else {
+        (String::new(), String::new())
+    }
 }

@@ -1,3 +1,4 @@
+#![allow(unused)]
 use serde::{Serialize, Deserialize};
 use channels::channel;
 use tokio::{
@@ -19,14 +20,14 @@ use crate::{
     config::Config,
     fs,
     i18n,
+    router,
     msg::prelude::BinMessageEvent,
     response::ApiResponse,
     CONFIG_FILE_PATH
 };
 use tokio::sync::OnceCell;
 
-static GLOBAL_APP_STATUS: OnceCell<AppStatus> = OnceCell::const_new();
-pub const LISTEN_ADDR: &str = "127.0.0.1:3310";
+pub static GLOBAL_APP_STATUS: OnceCell<AppStatus> = OnceCell::const_new();
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(15);
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -58,6 +59,7 @@ impl MsgContent {
 pub async fn handle_connection(
     stream: TcpStream,
     addr: SocketAddr,
+    app_status: Arc<AppStatus>,
 ) -> anyhow::Result<()> {
     tracing::info!("New connection from {}", addr);
 
@@ -67,48 +69,52 @@ pub async fn handle_connection(
     let tx = Arc::new(Mutex::new(tx));
     let last_seen = Arc::new(Mutex::new(Instant::now()));
 
-    let tx_clone = tx.clone();
-    let last_seen_clone = last_seen.clone();
-    let heartbeat_handle = tokio::spawn(async move {
-        let mut interval = tokio::time::interval(HEARTBEAT_INTERVAL);
-        loop {
-            interval.tick().await;
-            let last_seen_guard = last_seen_clone.lock().await;
-            if last_seen_guard.elapsed() > CLIENT_TIMEOUT {
-                tracing::warn!("Connection timeout with {}", addr);
-                break;
-            }
-            drop(last_seen_guard);
-
-            let mut tx_guard = tx_clone.lock().await;
-            if let Err(e) = tx_guard.send(BotMessage::Heartbeat).await {
-                tracing::error!("Heartbeat error to {}: {}", addr, e);
-                break;
-            }
-        }
-    });
-
-    if let Some(app_status) = GLOBAL_APP_STATUS.get() {
-        app_status.update_bot_connection(tx.clone()).await;
-    }
+    app_status.update_bot_connection(tx.clone()).await;
 
     loop {
         match rx.recv().await {
             Ok(msg) => {
-                match msg {
-                    BotMessage::Heartbeat => {
-                        if let Err(e) = tx.lock().await.send(BotMessage::Pong).await {
-                            tracing::error!("Error sending Pong to {}: {}", addr, e);
-                            break;
+                // pass app_status to the task
+                let app_status_clone = Arc::clone(&app_status);
+                let tx_clone = Arc::clone(&tx);
+                let last_seen_clone = Arc::clone(&last_seen);
+                tokio::spawn(async move {
+                    *last_seen_clone.lock().await = Instant::now();
+
+                    match msg {
+                        BotMessage::Heartbeat => {
+                            let mut last_seen_guard = last_seen_clone.lock().await;
+                            *last_seen_guard = Instant::now();
+                            let mut tx_guard = tx_clone.lock().await;
+                            if let Err(e) = tx_guard.send(BotMessage::Pong).await {
+                                tracing::error!("Failed to send Pong: {}", e);
+                            }
+                        }
+                        BotMessage::Pong => {
+                            // No action needed for Pong
+                        }
+                        BotMessage::Chat { from, to, content } => {
+                            let response = router::bot_message_handler(
+                                content.clone(),
+                                app_status_clone.clone()
+                            ).await;
+                            let response_content = MsgContent {
+                                command: None,
+                                payload: content.payload.clone(),
+                                message: content.message.clone(),
+                                api_response: Some(response),
+                            };
+                            let mut tx_guard = tx_clone.lock().await;
+                            if let Err(e) = tx_guard.send(BotMessage::Chat {
+                                from,
+                                to,
+                                content: response_content,
+                            }).await {
+                                tracing::error!("Failed to send Chat response: {}", e);
+                            }
                         }
                     }
-                    BotMessage::Pong => {
-                        *last_seen.lock().await = Instant::now();
-                    }
-                    BotMessage::Chat { from, to, content } => {
-                        // Handle chat message logic here
-                    }
-                }
+                });
             }
             Err(e) => {
                 tracing::error!("Error receiving message from {}: {}", addr, e);
@@ -117,11 +123,7 @@ pub async fn handle_connection(
         }
     }
 
-    heartbeat_handle.abort();
-
-    if let Some(app_status) = GLOBAL_APP_STATUS.get() {
-        app_status.clear_bot_connection().await;
-    }
+    app_status.clear_bot_connection().await;
     tracing::info!("Connection closed: {}", addr);
 
     Ok(())
@@ -166,6 +168,7 @@ pub async fn initialize_app_status() -> AppStatus {
     };
 
     let app_config = Arc::new(RwLock::new(initial_config.clone()));
+    let tx_filerequest = Arc::new(RwLock::new(tx_filerequest));
     let app_status = AppStatus {
         config: app_config,
         file_tx: tx_filerequest,
