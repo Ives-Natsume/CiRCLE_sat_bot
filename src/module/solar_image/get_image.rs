@@ -82,7 +82,6 @@ pub fn file_uri(path: impl AsRef<Path>) -> Result<String, Box<dyn std::error::Er
     // 在 Windows 上处理 UNC 路径和驱动器盘符
     #[cfg(windows)]
     let uri_path = {
-        use std::ffi::OsStr;
         use std::os::windows::ffi::OsStrExt;
         
         let path_str = absolute_path

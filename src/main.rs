@@ -21,7 +21,7 @@ use crate::module::amsat::official_report::amsat_data_handler;
 use crate::module::solar_image::get_image;
 use crate::module::scheduled::scheduled_task_handler;
 
-pub const CONFIG_FILE_PATH: &str = "config.json";
+pub const CONFIG_FILE_PATH: &str = "../CiRCLE_sat_bot_core/config.json";
 pub const DOC_FILE_PATH: &str = "locales/doc.json";
 pub const COMMAND_TOML_PATH: &str = "commands.toml";
 
