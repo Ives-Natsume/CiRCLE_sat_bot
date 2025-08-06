@@ -1,7 +1,12 @@
 use crate::{
-    app_status::AppStatus, module::{amsat::official_report::query_satellite_status, solar_image}, msg::prelude::{
-        BinMessageEvent, FromBinMessageEvent, MessageElement, MessageEvent
-    }, response::ApiResponse, socket::MsgContent
+    app_status::AppStatus,
+    module::{
+        amsat::official_report::query_satellite_status,
+        amsat::user_report::push_user_report
+    },
+    msg::prelude::{BinMessageEvent, FromBinMessageEvent, MessageElement, MessageEvent},
+    response::ApiResponse,
+    socket::MsgContent
 };
 use std::sync::Arc;
 
@@ -70,6 +75,14 @@ async fn router(
                 data: Some(vec![uri]),
                 message: Some("solar image".to_string()),
             };
+        }
+        "report" => {
+            let user_id = payload.user_id.clone();
+            let admin_id = app_status.config.read().await.bot_config.admin_id.clone();
+            if !admin_id.contains(&user_id) {
+                return ApiResponse::error("测试阶段只开放给FNA测试喵".to_string());
+            }
+            response = push_user_report(&args).await;
         }
         _ => {}
     }

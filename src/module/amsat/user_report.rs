@@ -1,13 +1,15 @@
 #![allow(unused)]
 use crate::{
-    fs::handler::{FileRequest, FileFormat, FileData},
-    module::prelude::*,
-    module::amsat::prelude::*,
+    fs::handler::{FileData, FileFormat, FileRequest},
+    module::{amsat::prelude::*, prelude::*},
+    response::ApiResponse,
 };
 use tokio::{
     sync::RwLock,
 };
 use std::sync::Arc;
+use chrono::{DateTime, Utc, Datelike, Timelike};
+use reqwest;
 
 // TODO：unfinished
 pub async fn data_parser(
@@ -77,4 +79,44 @@ pub async fn save_user_report(
     };
 
     Ok(())
+}
+
+pub async fn push_user_report(
+    report: &String,
+) -> ApiResponse<Vec<String>> {
+    let report = match data_parser(report).await {
+        Ok(r) => r,
+        Err(e) => return ApiResponse::error(format!("Failed to parse user report: {}", e)),
+    };
+    // report time user input format: "YYYY-MM-DDTHH:MM:SSZ"
+    let reported_time: DateTime<Utc> = match DateTime::parse_from_rfc3339(&report.reported_time) {
+        Ok(dt) => dt.with_timezone(&Utc),
+        Err(_) => return ApiResponse::error(
+            "Invalid reported time format, expected RFC3339".to_string(),
+        ),
+    };
+    let year = reported_time.year();
+    let month = reported_time.month();
+    let day = reported_time.day();
+    let hour = reported_time.hour();
+    // an hour is divided into 4 periods of 15 minutes each
+    let period = (reported_time.minute() / 15);
+    let get_url = format!("https://www.amsat.org/status/submit.php?SatSubmit=yes&Confirm=yes&SatName={}&SatYear={:04}&SatMonth={:02}&SatDay={:02}&SatHour={:02}&SatPeriod={}&SatCall={}&SatReport={}&SatGridSquare={}",
+        report.name, year, month, day, hour, period, report.callsign, report.report, report.grid_square);
+
+    let client = reqwest::Client::new();
+    let response = client.get(&get_url).send().await;
+
+    match response {
+        Ok(resp) => {
+            if resp.status().is_success() {
+                tracing::info!("{}'s report submitted successfully for {}", report.callsign, report.name);
+            } else {
+                return ApiResponse::error(format!("Failed to submit user report, status: {}", resp.status()));
+            }
+        },
+        Err(e) => return ApiResponse::error(format!("Error submitting user report: {}", e)),
+    }
+
+    ApiResponse::ok(vec!["User report submitted successfully".to_string()])
 }
