@@ -17,7 +17,7 @@ pub struct Config {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BotConfig {
-    pub url: String,
+    pub sse_url: String,
     pub listen_addr: String,
     pub qq_id: String,
     pub group_id: Vec<u64>,

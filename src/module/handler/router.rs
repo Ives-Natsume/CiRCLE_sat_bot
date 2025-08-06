@@ -57,13 +57,14 @@ async fn router(
             response = query_satellite_status(&args, &app_status).await;
         }
         "s" | "sun" => {
-            let uri = match solar_image::get_image::file_uri("data/pic/solar_image_latest.png") {
-                Ok(uri) => uri,
-                Err(e) => {
-                    tracing::error!("Failed to encode solar image path: {}", e);
-                    return response;
-                }
-            };
+            // let uri = match solar_image::get_image::file_uri("data/pic/solar_image_latest.png") {
+            //     Ok(uri) => uri,
+            //     Err(e) => {
+            //         tracing::error!("Failed to encode solar image path: {}", e);
+            //         return response;
+            //     }
+            // };
+            let uri: String = "file:///server_data/pic/solar_image_latest.png".to_string();
             response = ApiResponse {
                 success: true,
                 data: Some(vec![uri]),

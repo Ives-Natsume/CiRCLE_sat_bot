@@ -60,7 +60,7 @@ pub async fn send_group_message_to_multiple_groups(
         return ;
     };
     let config = app_status.config.read().await;
-    let url = config.bot_config.url.clone();
+    let url = config.bot_config.sse_url.clone();
     let groups = &config.bot_config.group_id;
     let msg_text = response
         .data
@@ -111,7 +111,7 @@ pub async fn _send_picture_to_group(
     app_status: &Arc<AppStatus>,
 ) {
     let config = app_status.config.read().await;
-    let url = config.bot_config.url.clone();
+    let url = config.bot_config.sse_url.clone();
     let image_path = match response.data {
         Some(data) if !data.is_empty() => data[0].clone(),
         _ => {
