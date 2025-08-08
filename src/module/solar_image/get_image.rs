@@ -69,7 +69,7 @@ pub async fn get_solar_image(
     Ok(())
 }
 
-pub fn file_uri(path: impl AsRef<Path>) -> Result<String, Box<dyn std::error::Error>> {
+pub fn _file_uri(path: impl AsRef<Path>) -> Result<String, Box<dyn std::error::Error>> {
     let path = path.as_ref();
     
     // 获取绝对路径

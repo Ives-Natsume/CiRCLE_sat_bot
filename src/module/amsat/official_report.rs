@@ -131,7 +131,7 @@ async fn check_official_data_file_exist(
     }
 }
 
-async fn write_official_report_data(
+pub async fn write_report_data(
     tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
     file_data: &Vec<SatelliteFileFormat>,
     path: String
@@ -162,7 +162,7 @@ async fn write_official_report_data(
     }
 }
 
-async fn load_satellites_list(
+pub async fn load_satellites_list(
     tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>
 ) -> anyhow::Result<SatelliteList> {
     let (tx, rx) = tokio::sync::oneshot::channel();
@@ -235,8 +235,8 @@ async fn create_offficial_data_file(
         }
     }
 
-    let _ = write_official_report_data(tx_filerequest.clone(), &file_data, OFFICIAL_REPORT_DATA.into()).await;
-    let _ = write_official_report_data(tx_filerequest.clone(), &file_data, OFFICIAL_STATUS_CACHE.into()).await;
+    let _ = write_report_data(tx_filerequest.clone(), &file_data, OFFICIAL_REPORT_DATA.into()).await;
+    let _ = write_report_data(tx_filerequest.clone(), &file_data, OFFICIAL_STATUS_CACHE.into()).await;
 }
 
 pub fn pack_satellite_data(reports: Vec<SatStatus>) -> Option<SatelliteFileFormat> {
@@ -446,11 +446,11 @@ pub async fn amsat_data_handler(
     }
 
     // write the updated data back to the file
-    if let Err(e) = write_official_report_data(tx_filerequest.clone(), &file_data, OFFICIAL_REPORT_DATA.into()).await {
+    if let Err(e) = write_report_data(tx_filerequest.clone(), &file_data, OFFICIAL_REPORT_DATA.into()).await {
         response.message = Some(format!("{}", e));
         return response;
     }
-    if let Err(e) = write_official_report_data(tx_filerequest.clone(), &file_data, OFFICIAL_STATUS_CACHE.into()).await {
+    if let Err(e) = write_report_data(tx_filerequest.clone(), &file_data, OFFICIAL_STATUS_CACHE.into()).await {
         response.message = Some(format!("{}", e));
         return response;
     }
@@ -463,7 +463,7 @@ pub async fn amsat_data_handler(
     response
 }
 
-fn determine_report_status(
+pub fn determine_report_status(
     data: &HashMap<ReportStatus, usize>
 ) -> ReportStatus {
     if data.is_empty() {

@@ -40,24 +40,47 @@ pub fn is_valid_callsign(
 }
 
 /// Check if the grid is a valid maidenhead grid square, accepts 4 or 6 characters or more
-///  - Unfinished
-pub fn is_valid_grid(
-    grid: &String
-) -> bool {
-    let len = grid.len();
-    if len % 2 != 0 || len < 4 {
+pub fn is_valid_maidenhead_grid(grid: &str) -> bool {
+    let chars: Vec<char> = grid.chars().collect();
+    let len = chars.len();
+
+    if len < 4 || len % 2 != 0 {
         return false;
     }
 
-    // TODO: accept 6 characters or more
-    // keep only the first 4 characters for validation
-    let grid = &grid[..4];
-
-    // Check if the grid is a valid maidenhead grid square
-    let (first, second) = grid.split_at(2);
-    if !first.chars().all(|c| c.is_ascii_uppercase()) || !second.chars().all(|c| c.is_ascii_digit()) {
+    // check for first pair: uppercase A to R
+    if !valid_uppercase(chars[0]) || !valid_uppercase(chars[1]) {
         return false;
+    }
+
+    // second pair: numbers 0 to 9
+    if !chars[2].is_ascii_digit() || !chars[3].is_ascii_digit() {
+        return false;
+    }
+
+    // third pair: lowercase a to x
+    if len >= 6 {
+        if !valid_lowercase(chars[4]) || !valid_lowercase(chars[5]) {
+            return false;
+        }
+    }
+
+    // fourth pair: 0 to 9
+    if len == 8 {
+        if !chars[6].is_ascii_digit() || !chars[7].is_ascii_digit() {
+            return false;
+        }
     }
 
     true
+}
+
+// Check if char is in A-R
+fn valid_uppercase(c: char) -> bool {
+    ('A'..='R').contains(&c)
+}
+
+// Check if char is in a-x
+fn valid_lowercase(c: char) -> bool {
+    ('a'..='x').contains(&c)
 }
