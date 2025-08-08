@@ -223,6 +223,10 @@ pub async fn add_user_report(
         return ApiResponse::error("无法验证你的身份喵".to_string());
     }
 
+    if !is_valid_maidenhead_grid(grid.as_str()) {
+        return ApiResponse::error("网格参数非法喵".to_string());
+    }
+
     let status: String = match status.as_str() {
         "blue" | "b" | "蓝" => ReportStatus::Blue.to_string_report_format(),
         "yellow" | "y" | "黄" => ReportStatus::Yellow.to_string_report_format(),

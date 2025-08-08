@@ -49,7 +49,8 @@ pub fn is_valid_maidenhead_grid(grid: &str) -> bool {
     }
 
     // check for first pair: uppercase A to R
-    if !valid_uppercase(chars[0]) || !valid_uppercase(chars[1]) {
+    // accept lowercase here
+    if !valid_uppercase(chars[0].to_ascii_uppercase()) || !valid_uppercase(chars[1].to_ascii_uppercase()) {
         return false;
     }
 

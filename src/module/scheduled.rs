@@ -4,7 +4,7 @@ use chrono::{self, DateTime, Timelike, Utc};
 use crate::{
     app_status::AppStatus,
     module::{
-        amsat::{self, prelude::USER_REPORT_DATA},
+        amsat::{self, prelude::*},
         solar_image
     },
     msg::group_msg::send_group_message_to_multiple_groups, response
@@ -48,7 +48,7 @@ pub async fn scheduled_task_handler(
 
             let sleep_duration = (next_trigger - now).to_std().unwrap_or(Duration::from_secs(0));
             tracing::info!(
-                "Next AMSAT update scheduled at: {}",
+                "下次 AMSAT 更新时间: {}",
                 next_trigger.to_rfc3339()
             );
             tokio::time::sleep(sleep_duration).await;
@@ -56,21 +56,21 @@ pub async fn scheduled_task_handler(
             let mut attempt = 0;
             loop {
                 attempt += 1;
-                tracing::info!("Attempt {} to update AMSAT data", attempt);
-                
+                tracing::info!("更新 AMSAT 数据，尝试次数 {}/{}", attempt, MAX_RETRIES);
+
                 let response = amsat::official_report::amsat_data_handler(&app_status_cp1).await;
                 let success = response.success;
                 send_group_message_to_multiple_groups(response, &app_status_cp1).await;
                 if !success {
                     if attempt >= MAX_RETRIES {
-                            tracing::error!("AMSAT update failed after {} attempts", MAX_RETRIES);
+                            tracing::error!("AMSAT 更新失败，尝试次数: {}", MAX_RETRIES);
                             break;
                     }
-                    tracing::warn!("Retrying in {} seconds...", RETRY_DELAY.as_secs());
+                    tracing::warn!("{}s 后重试", RETRY_DELAY.as_secs());
                     tokio::time::sleep(RETRY_DELAY).await;
                 }
                 else {
-                    tracing::info!("AMSAT update completed successfully");
+                    tracing::info!("AMSAT 数据更新成功");
                     break;
                 }
             }
@@ -114,7 +114,7 @@ pub async fn scheduled_task_handler(
 
             let sleep_duration = (next_trigger - now).to_std().unwrap_or(Duration::from_secs(0));
             tracing::info!(
-                "Next solar image update scheduled at: {}",
+                "下次太阳活动图更新时间: {}",
                 next_trigger.to_rfc3339()
             );
             tokio::time::sleep(sleep_duration).await;
@@ -122,24 +122,24 @@ pub async fn scheduled_task_handler(
             let mut attempt = 0;
             loop {
                 attempt += 1;
-                tracing::info!("Attempt {} to update solar image", attempt);
-                
+                tracing::info!("正在更新太阳活动图，尝试次数 {}/{}", attempt, MAX_RETRIES);
+
                 match solar_image::get_image::get_solar_image(&app_status_cp2).await {
                     Ok(_) => {
-                        tracing::info!("Solar image update completed successfully");
+                        tracing::info!("太阳活动图已保存");
                         break;
                     }
                     Err(e) => {
-                        tracing::error!("Solar image update failed: {}", e);
+                        tracing::error!("太阳活动图更新失败: {}", e);
                         if attempt >= MAX_RETRIES {
-                            tracing::error!("Solar image update failed after {} attempts", MAX_RETRIES);
+                            tracing::error!("太阳活动图更新失败，尝试次数: {}", MAX_RETRIES);
                             let response = response::ApiResponse::<Vec<String>>::error(
-                                format!("太阳活动图保存失败: {}", e),
+                                format!("太阳活动图更新失败: {}", e),
                             );
                             send_group_message_to_multiple_groups(response, &app_status_cp2).await;
                             break;
                         }
-                        tracing::warn!("Retrying in {} seconds...", RETRY_DELAY.as_secs());
+                        tracing::warn!("{}s 后重试", RETRY_DELAY.as_secs());
                         tokio::time::sleep(RETRY_DELAY).await;
                     }
                 }
@@ -149,87 +149,68 @@ pub async fn scheduled_task_handler(
     
     let app_status_cp3 = Arc::clone(app_status);
     let _user_report_task = tokio::spawn(async move {
-        const MAX_RETRIES: u32 = 3;
-        
         loop {
             // schedule to run at every 10 minutes
             let now = Utc::now();
             let next_trigger = now + chrono::Duration::minutes(10);
 
             let sleep_duration = (next_trigger - now).to_std().unwrap_or(Duration::from_secs(0));
-            tracing::info!("Next user report update scheduled at: {}", next_trigger.to_rfc3339());
+            tracing::info!("下次用户报告更新时间: {}", next_trigger.to_rfc3339());
             tokio::time::sleep(sleep_duration).await;
 
-            // Check for new user reports
             let mut user_reports = match amsat::user_report::read_user_report_file(&app_status_cp3).await {
                 Ok(data) => data,
                 Err(e) => {
-                    tracing::error!("Failed to read user report file: {}", e);
+                    tracing::error!("读取用户报告文件失败: {}", e);
                     continue;
                 }
             };
 
-            // Process user reports
-            let mut attempt = 0;
-            loop {
-                attempt += 1;
-                
-                if attempt > MAX_RETRIES {
-                    tracing::error!("User report processing failed after {} attempts", MAX_RETRIES);
-                    break;
+            for satellite_file_format in &mut user_reports {
+                if satellite_file_format.data.is_empty() {
+                    continue;
                 }
-                tracing::info!("Attempt {} to process user reports", attempt);
 
-                for satellite_file_format in &mut user_reports {
-                    let mut i = 1;
-                    while i < satellite_file_format.data.len() {
-                        #[allow(unused_assignments)]
-                        let mut should_remove: bool = false;
+                let mut data_to_keep: Vec<SatelliteFileElement> = Vec::new();
 
-                        let file_element = &mut satellite_file_format.data[i];
-
-                        let time_block = match DateTime::parse_from_rfc3339(&file_element.time) {
-                            Ok(dt) => dt.with_timezone(&Utc),
-                            Err(e) => {
-                                tracing::error!("Failed to parse time block: {}", e);
-                                satellite_file_format.data.remove(i);
-                                continue;
-                            }
-                        };
-
-                        let now = Utc::now();
-                        if now - time_block > chrono::Duration::minutes(20) {
-                            if file_element.report.is_empty() {
-                                satellite_file_format.data.remove(i);
-                                continue;
-                            }
-                            for report in &file_element.report {
-                                if let Err(e) = amsat::user_report::push_user_report_from_SatStatus(report).await {
-                                    tracing::error!("Failed to submit user report: {}", e);
-                                }
-                            }
-                            should_remove = true;
-                        } else {
-                            should_remove = false;
+                for file_element in satellite_file_format.data.drain(..) {
+                    let time_block = match DateTime::parse_from_rfc3339(&file_element.time) {
+                        Ok(dt) => dt.with_timezone(&Utc),
+                        Err(e) => {
+                            tracing::error!("解析时间参数失败，数据将被丢弃: {}", e);
+                            // invalid data, dismissed
+                            continue;
                         }
+                    };
 
-                        if should_remove {
-                            satellite_file_format.data.remove(i);
-                        } else {
-                            i += 1;
+                    let now = Utc::now();
+                    if now - time_block > chrono::Duration::minutes(20) {
+                        if file_element.report.is_empty() {
+                            tracing::warn!("没有可以处理的数据");
                         }
+                        for report in &file_element.report {
+                            if let Err(e) = amsat::user_report::push_user_report_from_SatStatus(report).await {
+                                tracing::error!("上传用户数据失败，数据将被丢弃: {}", e);
+                            }
+                        }
+                        // discard the processed data
+                    } else {
+                        // keep unprocessed data
+                        data_to_keep.push(file_element);
                     }
                 }
 
-                // write user report data back to file
-                let tx_filerequest = app_status_cp3.file_tx.clone();
-                if let Err(e) = amsat::official_report::write_report_data(
-                    tx_filerequest,
-                    &user_reports,
-                    USER_REPORT_DATA.into()
-                ).await {
-                    tracing::error!("Failed to write user report file: {}", e);
-                }
+                satellite_file_format.data = data_to_keep;
+            }
+
+            // write user report data back to file
+            let tx_filerequest = app_status_cp3.file_tx.clone();
+            if let Err(e) = amsat::official_report::write_report_data(
+                tx_filerequest,
+                &user_reports,
+                USER_REPORT_DATA.into()
+            ).await {
+                tracing::error!("用户报告文件写入失败: {}", e);
             }
         }
     });
