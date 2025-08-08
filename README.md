@@ -27,3 +27,11 @@
  - 过境查询模块迁移与开放
  - `/v`命令一键QRV
  - 过境匹配
+
+## 鸣谢
+
+BA8AFK的[过境查询模块](https://github.com/AwayFromBiscuits/SatPassPredictAPI)，感谢小萝莉
+
+感谢CHDHAM，感谢所有承担测试工程师的，乱输命令的群友
+
+爱来自Rinko
