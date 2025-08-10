@@ -1,6 +1,9 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use crate::{
+    app_status::AppStatus,
     module::amsat::prelude::*,
+    msg::prelude::MessageEvent
 };
 
 impl ReportStatus {
@@ -84,4 +87,18 @@ fn valid_uppercase(c: char) -> bool {
 // Check if char is in a-x
 fn valid_lowercase(c: char) -> bool {
     ('a'..='x').contains(&c)
+}
+
+pub fn callsign_auth(
+    callsign: &String,
+    payload: &MessageEvent,
+    admin_list: &Vec<u64>
+) -> bool {
+    let nickname = payload.sender.card.clone();
+    let user_id = payload.sender.user_id.clone();
+    if !nickname.to_uppercase().contains(callsign) && !admin_list.contains(&user_id) {
+        return false;
+    }
+
+    true
 }

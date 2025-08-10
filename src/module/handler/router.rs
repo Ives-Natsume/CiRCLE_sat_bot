@@ -1,8 +1,11 @@
 use crate::{
     app_status::AppStatus,
     module::{
-        amsat::official_report::query_satellite_status,
-        amsat::user_report::{push_user_report, add_user_report, create_report_template},
+        amsat::{
+            official_report::query_satellite_status,
+            user_report::{add_user_report, create_report_template, push_user_report}
+        },
+        tools::roaming::*,
     },
     msg::prelude::{BinMessageEvent, FromBinMessageEvent, MessageElement, MessageEvent},
     response::ApiResponse,
@@ -92,6 +95,18 @@ async fn router(
         }
         "report" => {
             response = add_user_report(app_status, &args, &payload).await;
+        }
+        "roaming" => {
+            tracing::warn!("Received roaming command with args: {}", args);
+            if args.is_empty() {
+                return ApiResponse::error("请提供漫游信息喵".to_string());
+            } else if args.starts_with("list") {
+                response = list_roaming(&app_status, &args).await;
+            } else if args.starts_with("remove") {
+                response = remove_roaming(&app_status, &args, &payload).await;
+            } else {
+                response = add_roaming(&app_status, &args, &payload).await;
+            }
         }
         _ => {}
     }

@@ -1,5 +1,5 @@
 use crate::{
-    app_status::AppStatus, fs::handler::{FileData, FileFormat, FileRequest}, module::{amsat::{official_report, prelude::*}, prelude::*}, msg::prelude::{MessageElement, MessageEvent}, response::ApiResponse
+    app_status::AppStatus, fs::handler::{FileData, FileFormat, FileRequest}, i18n, module::{amsat::{official_report, prelude::*}, prelude::*}, msg::prelude::MessageEvent, response::ApiResponse
 };
 use tokio::{
     sync::RwLock,
@@ -133,7 +133,7 @@ pub async fn create_report_template(
 
     let _reported_time = match DateTime::parse_from_rfc3339(args[1]) {
         Ok(datetime) => datetime,
-        Err(e) => return Err(anyhow::anyhow!("时间设定失败: {}", e)),
+        Err(e) => return Err(anyhow::anyhow!("时间设定失败: {}\n时间格式为 2025-01-30T12:34:00Z 喵", e)),
     };
 
     // let year = reported_time.year();
@@ -178,6 +178,26 @@ pub async fn create_report_template(
     let mut matched = false;
     for item in user_report_data.iter_mut() {
         if item.name == match_sat {
+            // check if two template has little delta time
+            if let Some(last_time) = item.data.last().map(|e| e.time.clone()) {
+                let last_time: DateTime<Utc> = match DateTime::parse_from_rfc3339(&last_time) {
+                    Ok(dt) => dt.with_timezone(&Utc),
+                    Err(e) => {
+                        tracing::error!("Failed to parse last_time: {}", e);
+                        continue;
+                    }
+                };
+                let new_time: DateTime<Utc> = match DateTime::parse_from_rfc3339(&new_element.time) {
+                    Ok(dt) => dt.with_timezone(&Utc),
+                    Err(e) => {
+                        tracing::error!("Failed to parse new_element time: {}", e);
+                        continue;
+                    }
+                };
+                if (last_time - new_time).abs() < chrono::Duration::minutes(15) {
+                    return Err(anyhow::anyhow!("本次过境的模板已经被创建了喵"));
+                }
+            }
             // reset the old data
             item.data = vec![new_element.clone()];
             matched = true;
@@ -254,9 +274,11 @@ pub async fn add_user_report(
         Err(e) => return ApiResponse::<Vec<String>>::error(format!("{}", e)),
     };
 
-    let mut found = false;
     for item in user_report_data.iter_mut() {
         if item.name == match_sat {
+            if item.data.is_empty() {
+                return ApiResponse::<Vec<String>>::error(format!("{}", i18n::text("cmd_report_user_no_template")));
+            }
             let mut element = item.data[0].clone();
             let time = element.time.clone();
             let report = SatStatus {
@@ -274,14 +296,8 @@ pub async fn add_user_report(
             }
             element.report.push(report);
             item.data = vec![element];
-            found = true;
             break;
         }
-    }
-
-    // return warn if the satellite is not found
-    if !found {
-        return ApiResponse::<Vec<String>>::error("请先创建卫星报告模板喵");
     }
 
     // check if reports have conflicts
@@ -298,7 +314,7 @@ pub async fn add_user_report(
     }
     let report_status = official_report::determine_report_status(&report_status_count);
     if report_status == ReportStatus::Orange {
-        response_data.push("报告发生冲突了喵，但是已经添加到队列中，请检查报告是否正确呢，如果需要更改再次提交就可以喵".to_string());
+        response_data.push(i18n::text("cmd_report_user_conflict_report"));
     }
 
     if let Err(e) = write_report_data(

@@ -1,4 +1,6 @@
 {
+  "cmd_report_user_conflict_report": "报告发生冲突了喵，但是已经添加到队列中，请检查报告是否正确呢，如果需要更改再次提交就可以喵",
+  "cmd_report_user_no_template": "请先创建卫星报告模板喵\\n使用 /create <卫星名称> <过境时间(UTC)> 创建报告模板\\n使用 /create h 获取帮助",
   "config_file_empty": "配置文件为空",
   "config_file_parse_error": "配置文件解析失败",
   "config_file_read_error": "配置文件读取失败",
