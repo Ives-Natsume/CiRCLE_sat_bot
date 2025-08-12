@@ -1,7 +1,8 @@
 use crate::{
     app_status::AppStatus, fs::handler::{FileData, FileFormat, FileRequest}, module::{prelude::*}, msg::prelude::MessageEvent, response::ApiResponse
 };
-use std::sync::Arc;
+use std::{clone, sync::Arc};
+use regex::Regex;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
 
@@ -90,10 +91,16 @@ pub async fn add_roaming(
 ) -> ApiResponse<Vec<String>> {
     let mut response = ApiResponse::<Vec<String>>::empty();
 
-    let parts: Vec<&str> = args.split('/').collect();
-    let callsign = parts.get(0).cloned().unwrap_or("").to_uppercase();
-    let grid = parts.get(1).cloned().unwrap_or("");
-    let info = parts.get(2).cloned();
+    let args = match parse_input_flexible(args) {
+        Some(parsed) => parsed,
+        None => {
+            return ApiResponse::<Vec<String>>::error("无法解析输入喵，请确保格式为：<呼号> <网格1> [网格2 ...] [备注]，呼号和网格间用空格分隔，多个网格间也用空格分隔，呼号可以使用'/'喵\n但是由于目前验证机制不成熟，需要确保你输入的呼号包含在你的群昵称内".to_string());
+        }
+    };
+
+    let callsign = args.callsign;
+    let grid = args.grids;
+    let info = args.remark;
 
     tracing::info!("Adding roaming data: {} {} {:?}", callsign, grid, info);
 
@@ -108,7 +115,7 @@ pub async fn add_roaming(
 
     let grids = grid.split_whitespace().collect::<Vec<&str>>();
     if grids.is_empty() {
-        return ApiResponse::<Vec<String>>::error("请提供漫游网格喵，或许你忘记使用\"/\"分隔符了喵".to_string());
+        return ApiResponse::<Vec<String>>::error("请提供漫游网格喵".to_string());
     }
     for g in &grids {
         if !is_valid_maidenhead_grid(g) {
@@ -126,17 +133,16 @@ pub async fn add_roaming(
         }
     };
 
-    let new_data = RoamingData {
-        callsign: callsign.clone(),
-        grid: grid.into(),
-        info: info.map(|s| s.into()),
-    };
-
     if let Some(existing) = roaming_data.iter_mut().find(|r| r.callsign.contains(&callsign)) {
-        existing.grid = grid.into();
+        existing.grid = grid.clone().into();
         existing.info = info.map(|s| s.into());
         response.data = Some(vec![format!("{}的漫游信息已更新为: {}", callsign, grid)]);
     } else {
+        let new_data = RoamingData {
+            callsign: callsign.clone(),
+            grid: grid.clone().into(),
+            info: info.map(|s| s.into()),
+        };
         roaming_data.push(new_data);
         response.data = Some(vec![format!("{}的漫游信息已添加: {}", callsign, grid)]);
     }
@@ -264,4 +270,47 @@ pub async fn list_roaming(
 
     response.data = Some(data);
     response
+}
+
+#[derive(Debug)]
+struct ParsedInput {
+    callsign: String,
+    grids: String,
+    remark: Option<String>,
+}
+
+fn parse_input_flexible(input: &str) -> Option<ParsedInput> {
+    // 宽容匹配：
+    // - 呼号：不含空白和CJK的字母数字及/
+    // - 网格：至少一个合法的（A-R a-r）(2) + 数字(2) + 后续字母数字（可空）
+    // - 备注：可有可无
+    let re = Regex::new(
+        r"(?xi)                     # (?x) 忽略空白，(?i) 不区分大小写
+        ^\s*
+        (?P<callsign>[A-Za-z0-9/]+)   # 呼号
+        \s+
+        (?P<grids>
+            (?:[A-R]{2}[0-9]{2}[A-Za-z0-9]*)   # 第一个网格
+            (?:\s+[A-R]{2}[0-9]{2}[A-Za-z0-9]*)* # 后续网格
+        )
+        (?:\s+(?P<remark>.+))?        # 可选备注
+        \s*$
+        "
+    ).unwrap();
+
+    if let Some(caps) = re.captures(input) {
+        // 规范化网格部分：多个空格压缩成一个空格
+        let grids_clean = caps["grids"]
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        Some(ParsedInput {
+            callsign: caps["callsign"].to_uppercase(), // 呼号统一成大写
+            grids: grids_clean,
+            remark: caps.name("remark").map(|m| m.as_str().trim().to_string()),
+        })
+    } else {
+        None
+    }
 }

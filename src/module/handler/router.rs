@@ -96,7 +96,7 @@ async fn router(
         "report" => {
             response = add_user_report(app_status, &args, &payload).await;
         }
-        "roaming" => {
+        "roaming" | "r" => {
             tracing::warn!("Received roaming command with args: {}", args);
             if args.is_empty() {
                 return ApiResponse::error("请提供漫游信息喵".to_string());

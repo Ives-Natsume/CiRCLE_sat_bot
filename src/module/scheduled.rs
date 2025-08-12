@@ -4,10 +4,11 @@ use chrono::{self, DateTime, Timelike, Utc};
 use crate::{
     app_status::AppStatus,
     module::{
-        amsat::{self, prelude::*},
+        amsat::{self, prelude::*, official_report},
         solar_image
     },
-    msg::group_msg::send_group_message_to_multiple_groups, response
+    msg::group_msg::send_group_message_to_multiple_groups,
+    response
 };
 
 pub async fn scheduled_task_handler(
@@ -74,6 +75,10 @@ pub async fn scheduled_task_handler(
                     break;
                 }
             }
+
+            // handle the cache
+            let response = official_report::sat_status_cache_handler(&app_status_cp1).await;
+            send_group_message_to_multiple_groups(response, &app_status_cp1).await;
         }
     });
 

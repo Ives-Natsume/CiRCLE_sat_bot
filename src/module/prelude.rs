@@ -1,7 +1,5 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 use crate::{
-    app_status::AppStatus,
     module::amsat::prelude::*,
     msg::prelude::MessageEvent
 };
@@ -94,9 +92,18 @@ pub fn callsign_auth(
     payload: &MessageEvent,
     admin_list: &Vec<u64>
 ) -> bool {
+    // callsign may contains `/`
+    // e.g. NA1SS/0 or B0/NA1SS
+    // extracting real callsign for auth
+    let mut callsign = callsign.to_uppercase();
+    if callsign.contains('/') {
+        let parts: Vec<&str> = callsign.split('/').collect();
+        // longest part is callsign
+        callsign = parts.iter().max_by_key(|s| s.len()).unwrap_or(&callsign.as_str()).to_string();
+    }
     let nickname = payload.sender.card.clone();
     let user_id = payload.sender.user_id.clone();
-    if !nickname.to_uppercase().contains(callsign) && !admin_list.contains(&user_id) {
+    if !nickname.to_uppercase().contains(&callsign) && !admin_list.contains(&user_id) {
         return false;
     }
 

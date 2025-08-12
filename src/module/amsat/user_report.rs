@@ -20,7 +20,7 @@ pub async fn data_parser(
     let args: Vec<&str> = args.split_whitespace().collect();
     if args.len() < 5 {
         // abort if not enough arguments
-        return Err(anyhow::anyhow!("Not enough arguments"));
+        return Err(anyhow::anyhow!("参数不足喵"));
     }
 
     let callsign = args[0].to_string();
@@ -131,6 +131,9 @@ pub async fn create_report_template(
     //     Err(e) => return Err(anyhow::anyhow!("时间设定失败: {}", e)),
     // };
 
+    if args.len() < 2 {
+        return Err(anyhow::anyhow!("参数不足喵"));
+    }
     let _reported_time = match DateTime::parse_from_rfc3339(args[1]) {
         Ok(datetime) => datetime,
         Err(e) => return Err(anyhow::anyhow!("时间设定失败: {}\n时间格式为 2025-01-30T12:34:00Z 喵", e)),
@@ -233,6 +236,11 @@ pub async fn add_user_report(
 
     // Args: Sat-name Callsign Grid Status
     let args: Vec<&str> = args.split_whitespace().collect();
+
+    if args.len() < 4 {
+        return ApiResponse::<Vec<String>>::error("参数不足喵".to_string());
+    }
+
     let callsign = args[1].to_uppercase().to_string();
     let sat_name = args[0].to_string();
     let grid = args[2].to_string();
@@ -274,11 +282,10 @@ pub async fn add_user_report(
         Err(e) => return ApiResponse::<Vec<String>>::error(format!("{}", e)),
     };
 
+    let mut found = false;
     for item in user_report_data.iter_mut() {
-        if item.name == match_sat {
-            if item.data.is_empty() {
-                return ApiResponse::<Vec<String>>::error(format!("{}", i18n::text("cmd_report_user_no_template")));
-            }
+        if item.name == match_sat && item.data.len() > 0 {
+            found = true;
             let mut element = item.data[0].clone();
             let time = element.time.clone();
             let report = SatStatus {
@@ -298,6 +305,11 @@ pub async fn add_user_report(
             item.data = vec![element];
             break;
         }
+    }
+
+    // return warn if the satellite is not found
+    if !found {
+        return ApiResponse::<Vec<String>>::error(format!("{}", i18n::text("cmd_report_user_no_template")));
     }
 
     // check if reports have conflicts
