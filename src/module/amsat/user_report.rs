@@ -124,7 +124,7 @@ pub async fn create_report_template(
     app_status: Arc<AppStatus>
 ) -> anyhow::Result<()> {
     // Args: Sat-name Report-time (rfc3339)
-    let args: Vec<&str> = args.split_whitespace().collect();
+    let mut args: Vec<&str> = args.split_whitespace().collect();
 
     // let reported_time = match parse_user_datetime(&args[1]) {
     //     Ok(d) => d,
@@ -134,10 +134,6 @@ pub async fn create_report_template(
     if args.len() < 2 {
         return Err(anyhow::anyhow!("参数不足喵"));
     }
-    let _reported_time = match DateTime::parse_from_rfc3339(args[1]) {
-        Ok(datetime) => datetime,
-        Err(e) => return Err(anyhow::anyhow!("时间设定失败: {}\n时间格式为 2025-01-30T12:34:00Z 喵", e)),
-    };
 
     // let year = reported_time.year();
     // let month = reported_time.month();
@@ -163,7 +159,7 @@ pub async fn create_report_template(
 
     let match_sat = search_satellites(args[0], &satellite_lists, 0.95);
     if match_sat.is_empty() || match_sat.len() != 1 {
-        return Err(anyhow::anyhow!("无法选中卫星"))
+        return Err(anyhow::anyhow!("无法选中卫星喵，可能的卫星有: {:?}", match_sat))
     }
     let match_sat = match_sat[0];
 
@@ -173,8 +169,13 @@ pub async fn create_report_template(
         Err(e) => return Err(anyhow::anyhow!("{}", e)),
     };
 
+    let time = match args[1].to_lowercase().as_str() {
+        "now" | "current" | "nowutc" => Utc::now().to_rfc3339(),
+        _ => args[1].to_string(),
+    };
+
     let new_element: SatelliteFileElement = SatelliteFileElement {
-        time: args[1].to_string(),
+        time,
         report: Vec::new()
     };
 
@@ -344,6 +345,67 @@ pub async fn add_user_report(
     ));
     response.data = Some(response_data);
     response
+}
+
+pub async fn remove_user_report(
+    app_status: Arc<AppStatus>,
+    args: &String,
+    payload: &MessageEvent,
+) -> ApiResponse<Vec<String>> {
+    // Args: remove <satellite_name> <Callsign>
+    let args: Vec<&str> = args.split_whitespace().collect();
+    if args.len() < 2 {
+        return ApiResponse::<Vec<String>>::error("参数不足喵".to_string());
+    }
+
+    // read satellite name and callsign from args
+    let satellite_name = args.get(1).cloned().unwrap_or_default();
+    let callsign = args.get(2).cloned().unwrap_or_default();
+
+    let nickname = payload.sender.card.clone();
+    if !nickname.to_uppercase().contains(&callsign) {
+        return ApiResponse::error("无法验证你的身份喵".to_string());
+    }
+
+    // read user_report_data
+    let user_report_data = match read_user_report_file(&app_status).await {
+        Ok(data) => data,
+        Err(e) => return ApiResponse::<Vec<String>>::error(format!("{}", e)),
+    };
+
+    // remove user report
+    let mut found = false;
+    let mut new_data: Vec<SatelliteFileFormat> = Vec::new();
+    for item in user_report_data {
+        if item.name == satellite_name {
+            found = true;
+            let mut new_element = item.data[0].clone();
+            new_element.report.retain(|report| report.callsign != callsign);
+            if !new_element.report.is_empty() {
+                new_data.push(SatelliteFileFormat {
+                    name: item.name.clone(),
+                    data: vec![new_element],
+                });
+            }
+        } else {
+            new_data.push(item);
+        }
+    }
+
+    if !found {
+        return ApiResponse::<Vec<String>>::error(format!("{}", i18n::text("cmd_report_user_no_template")));
+    }
+
+    let tx_filerequest = app_status.file_tx.clone();
+    if let Err(e) = write_report_data(
+        tx_filerequest.clone(),
+        &new_data,
+        USER_REPORT_DATA.into(),
+    ).await {
+        return ApiResponse::<Vec<String>>::error(format!("{}", e));
+    }
+
+    ApiResponse::<Vec<String>>::ok(vec![format!("{} 的报告已删除喵", callsign)])
 }
 
 pub async fn push_user_report(

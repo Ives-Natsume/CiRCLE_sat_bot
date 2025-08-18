@@ -3,7 +3,7 @@ use crate::{
     module::{
         amsat::{
             official_report::query_satellite_status,
-            user_report::{add_user_report, create_report_template, push_user_report}
+            user_report::{add_user_report, create_report_template, push_user_report, remove_user_report}
         },
         tools::roaming::*,
     },
@@ -94,12 +94,17 @@ async fn router(
             };
         }
         "report" => {
-            response = add_user_report(app_status, &args, &payload).await;
+            if args.starts_with("remove") {
+                response = remove_user_report(app_status, &args, &payload).await;
+            } else {
+                response = add_user_report(app_status, &args, &payload).await;
+            }
         }
         "roaming" | "r" => {
             tracing::warn!("Received roaming command with args: {}", args);
             if args.is_empty() {
-                return ApiResponse::error("请提供漫游信息喵".to_string());
+                response.message = Some("image".to_string());
+                response.data = Some(vec!["file:///server_data/pic/roaming_list.png".to_string()]);
             } else if args.starts_with("list") {
                 response = list_roaming(&app_status, &args).await;
             } else if args.starts_with("remove") {

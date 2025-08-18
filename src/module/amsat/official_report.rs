@@ -740,21 +740,21 @@ pub async fn query_satellite_status(
         }
     };
 
-    let latest_data = match load_sat_status_cache(tx_filerequest.clone(), SAT_STATUS_CACHE.into()).await {
-        Ok(data) => data,
-        Err(e) => {
-            response.message = Some(format!("{}", e));
-            return response;
-        }
-    };
-
-    // let latest_data = match load_official_report_data(tx_filerequest.clone(), OFFICIAL_STATUS_CACHE.into()).await {
+    // let latest_data = match load_sat_status_cache(tx_filerequest.clone(), SAT_STATUS_CACHE.into()).await {
     //     Ok(data) => data,
     //     Err(e) => {
     //         response.message = Some(format!("{}", e));
     //         return response;
     //     }
     // };
+
+    let latest_data = match load_official_report_data(tx_filerequest.clone(), OFFICIAL_STATUS_CACHE.into()).await {
+        Ok(data) => data,
+        Err(e) => {
+            response.message = Some(format!("{}", e));
+            return response;
+        }
+    };
 
     let inputs: Vec<&str> = input.split('/').collect();
     let mut match_sat = Vec::new();
@@ -772,75 +772,75 @@ pub async fn query_satellite_status(
         return response;
     }
 
-    for official_name in match_sat {
-        let sat_data_cache = latest_data.iter().find(|f| f.name == official_name);
-        response_data.push(format!(
-            "{}吗，交给Rinko喵~",
-            official_name
-        ));
-        if let Some(sat_record) = sat_data_cache {
-            // get latest report
-            if sat_record.status == ReportStatus::Grey {
-                response_data.push(format!("过去两天没有{}的报告呢，去上传报告吧", official_name));
-                continue;
-            }
-            let report_time = DateTime::parse_from_rfc3339(&sat_record.report_time)
-                .expect("Invalid time format in data element")
-                .with_timezone(&Utc);
-            let now = Utc::now();
-            let time_diff = (now - report_time).num_hours();
-
-            response_data.push(format!(
-                "大约{}小时前有{}个报告，{}的说",
-                time_diff,
-                sat_record.report_num,
-                sat_record.status.to_chinese_string()
-            ));
-        } else {
-            response_data.push(format!("过去两天没有{}的报告呢，去上传报告吧", official_name));
-        }
-        response_data.push("\n".to_string());
-    }
-
     // for official_name in match_sat {
-    //     let sat_data = latest_data.iter().find(|f| f.name == official_name);
+    //     let sat_data_cache = latest_data.iter().find(|f| f.name == official_name);
     //     response_data.push(format!(
     //         "{}吗，交给Rinko喵~",
     //         official_name
     //     ));
-    //     if let Some(sat_record) = sat_data {
+    //     if let Some(sat_record) = sat_data_cache {
     //         // get latest report
-    //         for data_element in &sat_record.data {
-    //             if data_element.report.is_empty() {
-    //                 continue;
-    //             }
-    //             let mut report_status_count: HashMap<ReportStatus, usize> = HashMap::new();
-    //             let mut report_total_count = 0;
-    //             for report in &data_element.report {
-    //                 let status = ReportStatus::from_string(&report.report.clone());
-    //                 *report_status_count.entry(status).or_default() += 1;
-    //                 report_total_count += 1;
-    //             }
-    //             let report_status = determine_report_status(&report_status_count);
-    //             let report_timeblock = DateTime::parse_from_rfc3339(&data_element.time)
-    //                 .expect("Invalid time format in data element")
-    //                 .with_timezone(&Utc);
-    //             let now = Utc::now();
-    //             let time_diff = (now - report_timeblock).num_hours();
-
-    //             response_data.push(format!(
-    //                 "大约{}小时前有{}个报告，{}的说",
-    //                 time_diff,
-    //                 report_total_count,
-    //                 report_status.to_chinese_string()
-    //             ));
-    //             break;
+    //         if sat_record.status == ReportStatus::Grey {
+    //             response_data.push(format!("过去两天没有{}的报告呢，去上传报告吧", official_name));
+    //             continue;
     //         }
+    //         let report_time = DateTime::parse_from_rfc3339(&sat_record.report_time)
+    //             .expect("Invalid time format in data element")
+    //             .with_timezone(&Utc);
+    //         let now = Utc::now();
+    //         let time_diff = (now - report_time).num_hours();
+
+    //         response_data.push(format!(
+    //             "大约{}小时前有{}个报告，{}的说",
+    //             time_diff,
+    //             sat_record.report_num,
+    //             sat_record.status.to_chinese_string()
+    //         ));
     //     } else {
     //         response_data.push(format!("过去两天没有{}的报告呢，去上传报告吧", official_name));
     //     }
     //     response_data.push("\n".to_string());
     // }
+
+    for official_name in match_sat {
+        let sat_data = latest_data.iter().find(|f| f.name == official_name);
+        response_data.push(format!(
+            "{}吗，交给Rinko喵~",
+            official_name
+        ));
+        if let Some(sat_record) = sat_data {
+            // get latest report
+            for data_element in &sat_record.data {
+                if data_element.report.is_empty() {
+                    continue;
+                }
+                let mut report_status_count: HashMap<ReportStatus, usize> = HashMap::new();
+                let mut report_total_count = 0;
+                for report in &data_element.report {
+                    let status = ReportStatus::from_string(&report.report.clone());
+                    *report_status_count.entry(status).or_default() += 1;
+                    report_total_count += 1;
+                }
+                let report_status = determine_report_status(&report_status_count);
+                let report_timeblock = DateTime::parse_from_rfc3339(&data_element.time)
+                    .expect("Invalid time format in data element")
+                    .with_timezone(&Utc);
+                let now = Utc::now();
+                let time_diff = (now - report_timeblock).num_hours();
+
+                response_data.push(format!(
+                    "大约{}小时前有{}个报告，{}的说",
+                    time_diff,
+                    report_total_count,
+                    report_status.to_chinese_string()
+                ));
+                break;
+            }
+        } else {
+            response_data.push(format!("过去两天没有{}的报告呢，去上传报告吧", official_name));
+        }
+        response_data.push("\n".to_string());
+    }
 
     if response_data.iter().all(|s| s.trim().is_empty()) {
         response.message = Some("^ ^)/".to_string());
