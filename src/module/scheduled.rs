@@ -18,6 +18,7 @@ pub async fn scheduled_task_handler(
     let _amsat_task = tokio::spawn(async move {
         const MAX_RETRIES: u32 = 3;
         const RETRY_DELAY: Duration = Duration::from_secs(60);
+        const TIMEOUT: Duration = Duration::from_secs(60 * 5);
 
         loop {
             // schedule to run at xx:02, xx:17, xx:32, xx:47 every hour
@@ -58,8 +59,24 @@ pub async fn scheduled_task_handler(
             loop {
                 attempt += 1;
                 tracing::info!("更新 AMSAT 数据，尝试次数 {}/{}", attempt, MAX_RETRIES);
+                let timeout = tokio::time::timeout(TIMEOUT, async {
+                    // Ensure the request does not block indefinitely
+                    amsat::official_report::amsat_data_handler(&app_status_cp1).await
+                });
 
-                let response = amsat::official_report::amsat_data_handler(&app_status_cp1).await;
+                let response = timeout.await;
+                let response = match response {
+                    Ok(response) => response,
+                    Err(e) => {
+                        tracing::error!("AMSAT 数据更新超时: {}", e);
+                        let err_msg = format!("AMSAT 数据更新超时，尝试次数 {} / {}: {:#?}", attempt, MAX_RETRIES, e);
+                        let response = response::ApiResponse::<Vec<String>>::error(
+                            err_msg,
+                        );
+                        send_group_message_to_multiple_groups(response, &app_status_cp1).await;
+                        continue;
+                    }
+                };
                 let success = response.success;
                 send_group_message_to_multiple_groups(response, &app_status_cp1).await;
                 if !success {

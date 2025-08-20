@@ -28,7 +28,7 @@ struct RoamingSubmitHistory {
     pub block: bool,
 }
 
-const MAX_SUBMIT_LIMIT: usize = 4;
+const MAX_SUBMIT_LIMIT: usize = 1;
 const USER_ROAMING_SUBMIT_HISTORY: &str = "data/user_roaming_submit_history.json";
 
 async fn read_user_roaming_submit_history(

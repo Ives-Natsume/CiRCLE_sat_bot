@@ -20,7 +20,7 @@ pub async fn data_parser(
     let args: Vec<&str> = args.split_whitespace().collect();
     if args.len() < 5 {
         // abort if not enough arguments
-        return Err(anyhow::anyhow!("参数不足喵"));
+        return Err(anyhow::anyhow!("参数不足喵，格式是 /report <呼号> <网格> <卫星名称> <报告时间> <报告状态> 喵"));
     }
 
     let callsign = args[0].to_string();
@@ -124,7 +124,7 @@ pub async fn create_report_template(
     app_status: Arc<AppStatus>
 ) -> anyhow::Result<()> {
     // Args: Sat-name Report-time (rfc3339)
-    let mut args: Vec<&str> = args.split_whitespace().collect();
+    let args: Vec<&str> = args.split_whitespace().collect();
 
     // let reported_time = match parse_user_datetime(&args[1]) {
     //     Ok(d) => d,
@@ -132,7 +132,7 @@ pub async fn create_report_template(
     // };
 
     if args.len() < 2 {
-        return Err(anyhow::anyhow!("参数不足喵"));
+        return Err(anyhow::anyhow!("参数不足喵，格式是 /create <卫星名称> <报告时间> 喵"));
     }
 
     // let year = reported_time.year();
@@ -173,6 +173,11 @@ pub async fn create_report_template(
         "now" | "current" | "nowutc" => Utc::now().to_rfc3339(),
         _ => args[1].to_string(),
     };
+
+    // check if the time is valid
+    if DateTime::parse_from_rfc3339(&time).is_err() {
+        return Err(anyhow::anyhow!("报告时间格式错误，请使用 /create <卫星名称> now 参数创建当前时间的报告模版，或者 RFC3339 格式喵\n例如: 2023-10-01T12:00:00Z"));
+    }
 
     let new_element: SatelliteFileElement = SatelliteFileElement {
         time,
@@ -239,7 +244,7 @@ pub async fn add_user_report(
     let args: Vec<&str> = args.split_whitespace().collect();
 
     if args.len() < 4 {
-        return ApiResponse::<Vec<String>>::error("参数不足喵".to_string());
+        return ApiResponse::<Vec<String>>::error("参数不足喵，格式是 /report <卫星名称> <呼号> <网格> <状态> 喵".to_string());
     }
 
     let callsign = args[1].to_uppercase().to_string();
@@ -247,8 +252,11 @@ pub async fn add_user_report(
     let grid = args[2].to_string();
     let status = args[3].to_lowercase().to_string();
 
-    let nickname = payload.sender.card.clone();
-    if !nickname.to_uppercase().contains(&callsign) {
+    let admin_id: Vec<u64> = {
+        let config_guard = app_status.config.read().await;
+        config_guard.bot_config.admin_id.clone()
+    };
+    if !callsign_auth(&callsign, payload, &admin_id) {
         return ApiResponse::error("无法验证你的身份喵".to_string());
     }
 
@@ -274,7 +282,7 @@ pub async fn add_user_report(
 
     let match_sat = search_satellites(&sat_name, &satellite_lists, 0.95);
     if match_sat.is_empty() || match_sat.len() != 1 {
-        return ApiResponse::<Vec<String>>::error("无法选中卫星喵>_");
+        return ApiResponse::<Vec<String>>::error(format!("无法选中卫星喵，可能的卫星有: {:?}", match_sat));
     }
     let match_sat = match_sat[0];
 
@@ -354,16 +362,36 @@ pub async fn remove_user_report(
 ) -> ApiResponse<Vec<String>> {
     // Args: remove <satellite_name> <Callsign>
     let args: Vec<&str> = args.split_whitespace().collect();
-    if args.len() < 2 {
-        return ApiResponse::<Vec<String>>::error("参数不足喵".to_string());
+    if args.len() < 3 {
+        return ApiResponse::<Vec<String>>::error("参数不足喵，格式是 /report remove <卫星名称> <呼号> 喵".to_string());
     }
 
     // read satellite name and callsign from args
     let satellite_name = args.get(1).cloned().unwrap_or_default();
-    let callsign = args.get(2).cloned().unwrap_or_default();
+    let callsign = args.get(2).cloned().unwrap_or_default().to_uppercase();
 
-    let nickname = payload.sender.card.clone();
-    if !nickname.to_uppercase().contains(&callsign) {
+    // load satellite lists
+    let tx_filerequest = app_status.file_tx.clone();
+    let satellite_lists = match load_satellites_list(tx_filerequest.clone()).await {
+        Ok(data) => data,
+        Err(e) => {
+            return ApiResponse::<Vec<String>>::error(format!("可用卫星列表加载失败: {}", e));
+        }
+    };
+
+    // get the satellite name from the list
+    let match_sat = search_satellites(satellite_name, &satellite_lists, 0.95);
+    if match_sat.is_empty() || match_sat.len() != 1 {
+        return ApiResponse::<Vec<String>>::error(format!("无法选中卫星喵，可能的卫星有: {:?}", match_sat));
+    }
+    let match_sat = match_sat[0];
+
+    // auth user
+    let admin_id: Vec<u64> = {
+        let config_guard = app_status.config.read().await;
+        config_guard.bot_config.admin_id.clone()
+    };
+    if !callsign_auth(&callsign.to_string(), payload, &admin_id) {
         return ApiResponse::error("无法验证你的身份喵".to_string());
     }
 
@@ -374,25 +402,33 @@ pub async fn remove_user_report(
     };
 
     // remove user report
-    let mut found = false;
+    let mut found_template = false;
+    let mut found_callsign = false;
     let mut new_data: Vec<SatelliteFileFormat> = Vec::new();
     for item in user_report_data {
-        if item.name == satellite_name {
-            found = true;
+        if item.name == match_sat {
+            found_template = true;
             let mut new_element = item.data[0].clone();
-            new_element.report.retain(|report| report.callsign != callsign);
-            if !new_element.report.is_empty() {
-                new_data.push(SatelliteFileFormat {
-                    name: item.name.clone(),
-                    data: vec![new_element],
-                });
+            // check if the callsign exists in the report
+            if new_element.report.iter().any(|r| r.callsign == callsign) {
+                found_callsign = true;
             }
+            if found_callsign {
+                // remove the callsign report
+                new_element.report.retain(|r| r.callsign != callsign);
+            } else {
+                return ApiResponse::<Vec<String>>::error(format!("{} 的报告不存在喵", callsign));
+            }
+            new_data.push(SatelliteFileFormat {
+                name: item.name.clone(),
+                data: vec![new_element],
+            });
         } else {
             new_data.push(item);
         }
     }
 
-    if !found {
+    if found_template == false {
         return ApiResponse::<Vec<String>>::error(format!("{}", i18n::text("cmd_report_user_no_template")));
     }
 
