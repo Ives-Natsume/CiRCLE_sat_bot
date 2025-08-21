@@ -217,6 +217,7 @@ pub async fn create_report_template(
     if !matched {
         user_report_data.push(SatelliteFileFormat {
             name: match_sat.to_string(),
+            last_update_time: format!("{} BJT", chrono::Local::now().format("%Y-%m-%d %H:%M:%S")),
             data: vec![new_element],
         });
     }
@@ -421,6 +422,7 @@ pub async fn remove_user_report(
             }
             new_data.push(SatelliteFileFormat {
                 name: item.name.clone(),
+                last_update_time: format!("{} BJT", chrono::Local::now().format("%Y-%m-%d %H:%M:%S")),
                 data: vec![new_element],
             });
         } else {

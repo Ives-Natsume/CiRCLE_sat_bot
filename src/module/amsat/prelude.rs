@@ -42,6 +42,7 @@ pub struct SatelliteFileElement {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SatelliteFileFormat {
     pub name: String,
+    pub last_update_time: String,   // last update time in RFC3339 format
     pub data: Vec<SatelliteFileElement>,
 }
 

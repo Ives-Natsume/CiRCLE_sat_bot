@@ -4,13 +4,13 @@ use tiny_skia::Pixmap;
 use fontdb::Database;
 use std::{path::Path, fs, fmt::Write};
 use crate::{
-    app_status::AppStatus, fs::handler::{FileData, FileFormat, FileRequest}, module::tools::{render, roaming::RoamingData}
+    app_status::AppStatus, fs::handler::{FileData, FileFormat, FileRequest}, module::tools::{render, roaming::{RoamingData, UserRoamingData}}
 };
 
 const SVG_ROAMING_TEMPLATE_PATH: &str = "data/svg_roaming_template.svg";
 
 pub async fn render_roaming_data(
-    roaming_data: &Vec<RoamingData>,
+    roaming_data: &Vec<UserRoamingData>,
 ) -> anyhow::Result<()> {
     const HEADER_HEIGHT: f32 = 42.0;
     const BASE_ROW_HEIGHT: f32 = 38.0; // 基础行高
@@ -18,8 +18,10 @@ pub async fn render_roaming_data(
     const MAX_REMARK_WIDTH: f32 = 260.0; // 备注最大宽度
     const MAX_LINES: usize = 3; // 最大显示行数
     const X_PADDING_CALLSIGN: f32 = 20.0;
-    const X_PADDING_GRIDS: f32 = 170.0;
-    const X_PADDING_REMARK: f32 = 360.0;
+    const X_PADDING_GRIDS: f32 = 150.0;
+    const X_PADDING_REMARK: f32 = 340.0;
+    const X_PADDING_UPDATE_TIME: f32 = 630.0;
+    const X_PADDING_USER_ID: f32 = 880.0;
     const FOOTER_HEIGHT: f32 = 32.0;
 
     const EVEN_ROW_COLOR: &str = "#f6f8fa";
@@ -39,7 +41,7 @@ pub async fn render_roaming_data(
 
     for (index, item) in roaming_data.iter().enumerate() {
         // 处理备注文本换行
-        let (remark_lines, line_count) = if let Some(remark) = &item.remark {
+        let (remark_lines, line_count) = if let Some(remark) = &item.roaming_data.remark {
             wrap_text(remark, MAX_REMARK_WIDTH, MAX_LINES)
         } else {
             (vec!["".to_string()], 1)
@@ -62,6 +64,8 @@ pub async fn render_roaming_data(
         <rect x="0" y="{y_pos}" width="100%" height="{row_height}" fill="{row_color}" />
         <text x="{x_callsign}" y="{text_y}" class="table-text row-text monospace">{callsign}</text>
         <text x="{x_grids}" y="{text_y}" class="table-text row-text monospace">{grids}</text>
+        <text x="{x_update_time}" y="{text_y}" class="table-text row-text monospace">{update_time}</text>
+        <text x="{x_user_id}" y="{text_y}" class="table-text row-text monospace">{user_id}</text>
         <g transform="translate({x_remark}, 0)">
           {remark_lines}
         </g>
@@ -70,10 +74,14 @@ pub async fn render_roaming_data(
             row_height = row_height,
             text_y = text_y,
             x_callsign = X_PADDING_CALLSIGN,
-            callsign = &item.callsign,
+            callsign = &item.roaming_data.callsign,
             x_grids = X_PADDING_GRIDS,
-            grids = &item.grid,
+            grids = &item.roaming_data.grid,
             x_remark = X_PADDING_REMARK,
+            x_update_time = X_PADDING_UPDATE_TIME,
+            update_time = &item.submit_time,
+            x_user_id = X_PADDING_USER_ID,
+            user_id = &item.user_id,
             remark_lines = remark_lines.iter().enumerate().map(|(i, line)| {
                 let line_y = y_pos + (BASE_ROW_HEIGHT / 2.0) + (i as f32 * LINE_HEIGHT);
                 format!(r#"<text x="0" y="{line_y}" class="table-text row-text">{line}</text>"#)
@@ -91,7 +99,7 @@ pub async fn render_roaming_data(
         r##"    <g id="footer">
         <rect x="0" y="{footer_y}" width="100%" height="{FOOTER_HEIGHT}" fill="{FOOTER_COLOR}" />
         <text x="50%" y="{footer_text_y}" class="table-text footer-text" text-anchor="middle">
-            Rinko Bot v0.1.1, rendered at: {time_str} BJT, 测试中
+            Rinko Bot v0.1.1, rendered at {time_str} BJT, 测试中
         </text>
         </g>"##,
         footer_y = footer_y,

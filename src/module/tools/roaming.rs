@@ -21,6 +21,13 @@ pub struct RoamingData {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserRoamingData {
+    pub user_id: String,
+    pub submit_time: String, // local time
+    pub roaming_data: RoamingData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct RoamingSubmitHistory {
     pub user_id: u64,
     pub earliest_submit: String,    // ISO 8601 format
@@ -28,7 +35,7 @@ struct RoamingSubmitHistory {
     pub block: bool,
 }
 
-const MAX_SUBMIT_LIMIT: usize = 1;
+const MAX_SUBMIT_LIMIT: usize = 3;
 const USER_ROAMING_SUBMIT_HISTORY: &str = "data/user_roaming_submit_history.json";
 
 async fn read_user_roaming_submit_history(
@@ -194,7 +201,7 @@ async fn user_roaming_submit_history_handler(
 
 async fn write_roaming_data_to_file(
     tx_filerequest: &Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
-    roaming_data: &Vec<RoamingData>,
+    roaming_data: &Vec<UserRoamingData>,
 ) -> anyhow::Result<()> {
     let tx_filerequest = tx_filerequest.write().await;
     let (tx, rx) = tokio::sync::oneshot::channel();
@@ -226,7 +233,7 @@ async fn write_roaming_data_to_file(
 
 async fn read_roaming_data(
     tx_filerequest: &Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>
-) -> anyhow::Result<Vec<RoamingData>> {
+) -> anyhow::Result<Vec<UserRoamingData>> {
     let tx_filerequest = tx_filerequest.write().await;
     let (tx, rx) = tokio::sync::oneshot::channel();
     let file_request = FileRequest::Read {
@@ -247,7 +254,7 @@ async fn read_roaming_data(
     };
 
     let roaming_data = match read_result {
-        Ok(FileData::Json(data)) => match serde_json::from_value::<Vec<RoamingData>>(data) {
+        Ok(FileData::Json(data)) => match serde_json::from_value::<Vec<UserRoamingData>>(data) {
             Ok(data) => data,
             Err(e) => {
                 return Err(anyhow::anyhow!("Failed to parse roaming data: {}", e));
@@ -306,6 +313,13 @@ pub async fn add_roaming(
     }
 
     let tx_filerequest = app_status.file_tx.clone();
+    let update_time = format!("{} BJT", chrono::Local::now().format("%Y-%m-%d %H:%M:%S"));
+    let user_id = payload.user_id.clone();
+    let user_id_string = if admin_id.contains(&user_id) {
+        "Admin".to_string()
+    } else {
+        user_id.to_string()
+    };
 
     let mut roaming_data = match read_roaming_data(&tx_filerequest).await {
         Ok(data) => data,
@@ -315,15 +329,28 @@ pub async fn add_roaming(
         }
     };
 
-    if let Some(existing) = roaming_data.iter_mut().find(|r| r.callsign.contains(&callsign)) {
-        existing.grid = grid.clone().into();
-        existing.remark = info.map(|s| s.into());
+    if let Some(existing) = roaming_data.iter_mut().find(|r| r.roaming_data.callsign.contains(&callsign)) {
+        // check if the update comes from another user
+        if existing.user_id != user_id_string && user_id_string != "Admin" {
+            return ApiResponse::error("你是谁？请规范使用Rinko".to_string());
+        }
+        existing.roaming_data.grid = grid.clone().into();
+        existing.roaming_data.remark = info.map(|s| s.into());
         response.data = Some(vec![format!("{}的漫游信息已更新为: {}", callsign, grid)]);
     } else {
-        let new_data = RoamingData {
+        // check if the user owns another data as another callsign
+        if roaming_data.iter().any(|r| r.user_id == user_id.to_string() && r.roaming_data.callsign != callsign) {
+            return ApiResponse::error("你不能同时拥有多个漫游信息喵".to_string());
+        }
+        let new_roaming_data = RoamingData {
             callsign: callsign.clone(),
             grid: grid.clone().into(),
             remark: info.map(|s| s.into()),
+        };
+        let new_data = UserRoamingData {
+            user_id: user_id.to_string(),   // use admin's id instead of "Admin"
+            submit_time: update_time,
+            roaming_data: new_roaming_data,
         };
         roaming_data.push(new_data);
         response.data = Some(vec![format!("{}的漫游信息已添加: {}", callsign, grid)]);
@@ -384,18 +411,26 @@ pub async fn remove_roaming(
         }
     };
 
+    let user_id = payload.user_id.clone();
+    let user_id_string = if admin_id.contains(&user_id) {
+        "Admin".to_string()
+    } else {
+        user_id.to_string()
+    };
+
     // filter roaming data by callsign
     let filtered_data = if let Some(callsign_to_remove) = callsign_filter {
-        let original_len = roaming_data.len();
-        let filtered: Vec<RoamingData> = roaming_data
-            .into_iter()
-            .filter(|r| !r.callsign.contains(&callsign_to_remove))
-            .collect();
-        
-        if filtered.len() == original_len {
-            return ApiResponse::error(format!("没有找到呼号为 {} 的漫游信息喵", callsign_to_remove));
+        let mut filtered_data = Vec::new();
+        for r in roaming_data {
+            if r.roaming_data.callsign == callsign_to_remove {
+                if r.user_id != user_id_string && user_id_string != "Admin" {
+                    return ApiResponse::error("你是谁？请规范使用Rinko".to_string());
+                }
+                continue;
+            }
+            filtered_data.push(r);
         }
-        filtered
+        filtered_data
     } else {
         roaming_data
     };
@@ -449,9 +484,9 @@ pub async fn list_roaming(
 
     // filter roaming data by callsign
     let filtered_data = if let Some(callsign) = keywords_filter {
-        roaming_data.into_iter().filter(|r| r.callsign.contains(&callsign)).collect()
+        roaming_data.into_iter().filter(|r| r.roaming_data.callsign.contains(&callsign)).collect()
     } else if let Some(grid) = keywords_filter {
-        roaming_data.into_iter().filter(|r| r.grid.contains(&grid)).collect()
+        roaming_data.into_iter().filter(|r| r.roaming_data.grid.contains(&grid)).collect()
     } else {
         roaming_data
     };
@@ -460,11 +495,12 @@ pub async fn list_roaming(
     let mut data = Vec::new();
     for r in filtered_data {
         let formated_string = format!(
-            "{}:\n网格: {}\n",
-            r.callsign,
-            r.grid,
+            "{}:\n网格: {}\n提交时间: {}",
+            r.roaming_data.callsign,
+            r.roaming_data.grid,
+            r.submit_time,
         );
-        if let Some(info) = r.remark {
+        if let Some(info) = r.roaming_data.remark {
             data.push(format!("{}备注: {}\n", formated_string, info));
         } else {
             data.push(formated_string);
@@ -507,8 +543,17 @@ fn parse_input_flexible(input: &str) -> Option<ParsedInput> {
 
     if let Some(caps) = re.captures(input) {
         // 规范化网格部分：多个空格压缩成一个空格
+        // 前两位固定大写
         let grids_clean = caps["grids"]
             .split_whitespace()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|s| {
+                let mut chars = s.chars();
+                let first = chars.next().unwrap_or_default().to_uppercase();
+                let second = chars.next().unwrap_or_default().to_uppercase();
+                format!("{}{}", first, second) + &chars.as_str()
+            })
             .collect::<Vec<_>>()
             .join(" ");
 

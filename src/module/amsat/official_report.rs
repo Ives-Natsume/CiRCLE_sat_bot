@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use tokio::{
     sync::RwLock,
 };
-use chrono::{DateTime, Utc, Timelike, Duration};
+use chrono::{DateTime, Duration, Local, Timelike, Utc};
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 use std::collections::HashMap;
@@ -259,11 +259,6 @@ pub fn pack_satellite_data(reports: Vec<SatStatus>) -> Option<SatelliteFileForma
     let mut grouped: BTreeMap<String, Vec<SatStatus>> = BTreeMap::new();
 
     for report in reports {
-        // filter callsign
-        if report.callsign.contains("BH6BMJ") {
-            continue;
-        }
-
         // parse time string to chrono DateTime, UTC zone
         let datetime = match DateTime::parse_from_rfc3339(&report.reported_time) {
             Ok(dt) => dt.with_timezone(&Utc),
@@ -297,7 +292,9 @@ pub fn pack_satellite_data(reports: Vec<SatStatus>) -> Option<SatelliteFileForma
         .map(|(time, report)| SatelliteFileElement { time, report })
         .collect();
 
-    Some(SatelliteFileFormat { name, data })
+    let last_update_time = format!("{} BJT", Local::now().format("%Y-%m-%d %H:%M:%S"));
+
+    Some(SatelliteFileFormat { name, last_update_time, data })
 }
 
 pub fn update_satellite_data(
@@ -388,6 +385,7 @@ pub fn update_satellite_data(
 
     SatelliteFileFormat {
         name: existing.name,
+        last_update_time: new_element.last_update_time,
         data: sorted_data,
     }
 }
@@ -833,6 +831,10 @@ pub async fn query_satellite_status(
                     time_diff,
                     report_total_count,
                     report_status.to_chinese_string()
+                ));
+                response_data.push(format!(
+                    "数据更新时间: {}",
+                    sat_record.last_update_time
                 ));
                 break;
             }

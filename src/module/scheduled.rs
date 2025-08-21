@@ -58,6 +58,9 @@ pub async fn scheduled_task_handler(
             let mut attempt = 0;
             loop {
                 attempt += 1;
+                if attempt > MAX_RETRIES {
+                    break;
+                }
                 tracing::info!("更新 AMSAT 数据，尝试次数 {}/{}", attempt, MAX_RETRIES);
                 let timeout = tokio::time::timeout(TIMEOUT, async {
                     // Ensure the request does not block indefinitely
@@ -68,34 +71,32 @@ pub async fn scheduled_task_handler(
                 let response = match response {
                     Ok(response) => response,
                     Err(e) => {
-                        tracing::error!("AMSAT 数据更新超时: {}", e);
-                        let err_msg = format!("AMSAT 数据更新超时，尝试次数 {} / {}: {:#?}", attempt, MAX_RETRIES, e);
-                        let response = response::ApiResponse::<Vec<String>>::error(
-                            err_msg,
+                        let err_msg = format!("AMSAT 数据更新超时，尝试次数 {} / {}: {}\n{}s 后重试",
+                            attempt,
+                            MAX_RETRIES,
+                            e,
+                            RETRY_DELAY.as_secs()
                         );
-                        send_group_message_to_multiple_groups(response, &app_status_cp1).await;
+                        tracing::error!("{}", err_msg);
+                        if attempt >= MAX_RETRIES {
+                            tracing::error!("AMSAT 更新失败，尝试次数: {}", MAX_RETRIES);
+                            break;
+                        }
+                        tokio::time::sleep(RETRY_DELAY).await;
                         continue;
                     }
                 };
                 let success = response.success;
                 send_group_message_to_multiple_groups(response, &app_status_cp1).await;
-                if !success {
-                    if attempt >= MAX_RETRIES {
-                            tracing::error!("AMSAT 更新失败，尝试次数: {}", MAX_RETRIES);
-                            break;
-                    }
-                    tracing::warn!("{}s 后重试", RETRY_DELAY.as_secs());
-                    tokio::time::sleep(RETRY_DELAY).await;
-                }
-                else {
+                if success {
                     tracing::info!("AMSAT 数据更新成功");
                     break;
                 }
             }
 
             // handle the cache
-            let response = official_report::sat_status_cache_handler(&app_status_cp1).await;
-            send_group_message_to_multiple_groups(response, &app_status_cp1).await;
+            // let response = official_report::sat_status_cache_handler(&app_status_cp1).await;
+            // send_group_message_to_multiple_groups(response, &app_status_cp1).await;
         }
     });
 
