@@ -336,6 +336,7 @@ pub async fn add_roaming(
         }
         existing.roaming_data.grid = grid.clone().into();
         existing.roaming_data.remark = info.map(|s| s.into());
+        existing.submit_time = update_time;
         response.data = Some(vec![format!("{}的漫游信息已更新为: {}", callsign, grid)]);
     } else {
         // check if the user owns another data as another callsign
@@ -495,7 +496,7 @@ pub async fn list_roaming(
     let mut data = Vec::new();
     for r in filtered_data {
         let formated_string = format!(
-            "{}:\n网格: {}\n提交时间: {}",
+            "{}:\n网格: {}\n提交时间: {}\n",
             r.roaming_data.callsign,
             r.roaming_data.grid,
             r.submit_time,
