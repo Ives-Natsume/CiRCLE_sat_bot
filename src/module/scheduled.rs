@@ -5,7 +5,8 @@ use crate::{
     app_status::AppStatus,
     module::{
         amsat::{self, prelude::*, official_report},
-        solar_image
+        solar_image,
+        tools::render::SATSTATUS_PIC_PATH_PREFIX,
     },
     msg::group_msg::send_group_message_to_multiple_groups,
     response
@@ -237,4 +238,52 @@ pub async fn scheduled_task_handler(
             }
         }
     });
+
+    let _old_satstatus_img_cleanup_task = tokio::spawn(start_cleanup_task());
+}
+
+async fn start_cleanup_task() {
+    let mut interval = tokio::time::interval(Duration::from_secs(60 * 10));
+
+    loop {
+        interval.tick().await;
+        if let Err(e) = cleanup_old_files().await {
+            tracing::error!("Cleanup task failed: {}", e);
+        }
+    }
+}
+
+async fn cleanup_old_files() -> anyhow::Result<()> {
+    let now = Utc::now();
+    let dir = std::path::Path::new(SATSTATUS_PIC_PATH_PREFIX);
+
+    if !dir.exists() {
+        std::fs::create_dir_all(dir)?;
+    }
+
+    let re = regex::Regex::new(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))").unwrap();
+
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.extension().map(|ext| ext == "png").unwrap_or(false) {
+            if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
+                if let Some(captures) = re.captures(file_name) {
+                    let time_str = &captures[1];
+                    if let Ok(file_time) = DateTime::parse_from_rfc3339(time_str) {
+                        let file_time_utc = file_time.with_timezone(&Utc);
+                        let age = now.signed_duration_since(file_time_utc).num_seconds();
+
+                        if age > 60 * 10 {
+                            tracing::info!("Deleting expired file: {:?}", path);
+                            let _ = tokio::fs::remove_file(&path).await;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
 }

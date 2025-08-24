@@ -2,7 +2,9 @@ use crate::{
     app_status::AppStatus, 
     fs::handler::{FileData, FileFormat, FileRequest},
     module::amsat::prelude::*,
+    module::tools::render::render_satstatus_data,
     msg::group_msg::send_group_message_to_multiple_groups,
+    msg::prelude::MessageEvent,
     response::ApiResponse,
 };
 use serde::{Deserialize, Serialize};
@@ -60,7 +62,11 @@ async fn get_amsat_data(
                         attempt,
                         MAX_RETRIES
                     );
-                    let response: ApiResponse<Vec<String>> = ApiResponse::error(response_msg);
+                    let response = ApiResponse {
+                        success: false,
+                        data: Some(vec![response_msg]),
+                        message: Some("auto".to_string()),
+                    };
                     send_group_message_to_multiple_groups(response, &app_status).await;
                 }
             }
@@ -292,7 +298,7 @@ pub fn pack_satellite_data(reports: Vec<SatStatus>) -> Option<SatelliteFileForma
         .map(|(time, report)| SatelliteFileElement { time, report })
         .collect();
 
-    let last_update_time = format!("{} BJT", Local::now().format("%Y-%m-%d %H:%M:%S"));
+    let last_update_time = Utc::now().to_rfc3339();
 
     Some(SatelliteFileFormat { name, last_update_time, data })
 }
@@ -725,6 +731,7 @@ pub fn determine_report_status(
 pub async fn query_satellite_status(
     input: &str,
     app_status: &Arc<AppStatus>,
+    payload: &MessageEvent
 ) -> ApiResponse<Vec<String>> {
     tracing::debug!("Querying satellite status for input: {}", input);
     let mut response = ApiResponse::empty();
@@ -756,7 +763,7 @@ pub async fn query_satellite_status(
 
     let inputs: Vec<&str> = input.split('/').collect();
     let mut match_sat = Vec::new();
-    let mut response_data = Vec::new();
+    // let mut response_data = Vec::new();
     for sat in inputs {
         let match_sat_raw = search_satellites(sat, &satellite_lists, 0.95);
         for sat in match_sat_raw {
@@ -800,64 +807,67 @@ pub async fn query_satellite_status(
     //     response_data.push("\n".to_string());
     // }
 
+    let mut matched_sat_data: Vec<SatelliteFileFormat> = Vec::new();
     for official_name in match_sat {
         let sat_data = latest_data.iter().find(|f| f.name == official_name);
-        response_data.push(format!(
-            "{}吗，交给Rinko喵~",
-            official_name
-        ));
+        // response_data.push(format!(
+        //     "{}吗，交给Rinko喵~",
+        //     official_name
+        // ));
         if let Some(sat_record) = sat_data {
             // get latest report
-            for data_element in &sat_record.data {
-                if data_element.report.is_empty() {
-                    continue;
-                }
-                let mut report_status_count: HashMap<ReportStatus, usize> = HashMap::new();
-                let mut report_total_count = 0;
-                for report in &data_element.report {
-                    let status = ReportStatus::from_string(&report.report.clone());
-                    *report_status_count.entry(status).or_default() += 1;
-                    report_total_count += 1;
-                }
-                let report_status = determine_report_status(&report_status_count);
-                let report_timeblock = DateTime::parse_from_rfc3339(&data_element.time)
-                    .expect("Invalid time format in data element")
-                    .with_timezone(&Utc);
-                let now = Utc::now();
-                let time_diff = (now - report_timeblock).num_hours();
+            // for data_element in &sat_record.data {
+            //     if data_element.report.is_empty() {
+            //         continue;
+            //     }
+            //     let mut report_status_count: HashMap<ReportStatus, usize> = HashMap::new();
+            //     let mut report_total_count = 0;
+            //     for report in &data_element.report {
+            //         let status = ReportStatus::from_string(&report.report.clone());
+            //         *report_status_count.entry(status).or_default() += 1;
+            //         report_total_count += 1;
+            //     }
+            //     let report_status = determine_report_status(&report_status_count);
+            //     let report_timeblock = DateTime::parse_from_rfc3339(&data_element.time)
+            //         .expect("Invalid time format in data element")
+            //         .with_timezone(&Utc);
+            //     let now = Utc::now();
+            //     let time_diff = (now - report_timeblock).num_hours();
 
-                response_data.push(format!(
-                    "大约{}小时前有{}个报告，{}的说",
-                    time_diff,
-                    report_total_count,
-                    report_status.to_chinese_string()
-                ));
-                response_data.push(format!(
-                    "数据更新时间: {}",
-                    sat_record.last_update_time
-                ));
-                break;
-            }
-        } else {
-            response_data.push(format!("过去两天没有{}的报告呢，去上传报告吧", official_name));
+            //     response_data.push(format!(
+            //         "大约{}小时前有{}个报告，{}的说",
+            //         time_diff,
+            //         report_total_count,
+            //         report_status.to_chinese_string()
+            //     ));
+            //     response_data.push(format!(
+            //         "数据更新时间: {}",
+            //         sat_record.last_update_time
+            //     ));
+            //     break;
+            // }
+            matched_sat_data.push(sat_record.clone());
         }
-        response_data.push("\n".to_string());
+        // response_data.push("\n".to_string());
     }
 
-    if response_data.iter().all(|s| s.trim().is_empty()) {
-        response.message = Some("^ ^)/".to_string());
-        return response;
-    }
+    // if response_data.iter().all(|s| s.trim().is_empty()) {
+    //     response.message = Some("^ ^)/".to_string());
+    //     return response;
+    // }
 
-    while let Some(last) = response_data.last() {
-        if last.trim().is_empty() {
-            response_data.pop();
-        } else {
-            break;
-        }
-    }
+    // while let Some(last) = response_data.last() {
+    //     if last.trim().is_empty() {
+    //         response_data.pop();
+    //     } else {
+    //         break;
+    //     }
+    // }
 
-    response.success = true;
-    response.data = Some(response_data);
+    // response.success = true;
+    // response.data = Some(response_data);
+    // response
+
+    response = render_satstatus_data(&matched_sat_data, payload).await;
     response
 }

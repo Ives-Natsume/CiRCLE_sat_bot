@@ -4,10 +4,19 @@ use tiny_skia::Pixmap;
 use fontdb::Database;
 use std::{path::Path, fs, fmt::Write};
 use crate::{
-    app_status::AppStatus, fs::handler::{FileData, FileFormat, FileRequest}, module::tools::{render, roaming::{RoamingData, UserRoamingData}}
+    app_status::AppStatus,
+    fs::handler::{FileData, FileFormat, FileRequest},
+    module::{
+        amsat::prelude::{
+            ReportStatus, SatStatus, SatelliteFileElement, SatelliteFileFormat
+        },
+        tools::roaming::{RoamingData, UserRoamingData}
+    }, msg::prelude::MessageEvent, response::ApiResponse
 };
 
 const SVG_ROAMING_TEMPLATE_PATH: &str = "data/svg_roaming_template.svg";
+const SVG_SATSTATUS_TEMPLATE_PATH: &str = "data/svg_satstatus_template.svg";
+pub const SATSTATUS_PIC_PATH_PREFIX: &str = "data/pic/satstatus_pics/";
 
 pub async fn render_roaming_data(
     roaming_data: &Vec<UserRoamingData>,
@@ -127,6 +136,235 @@ pub async fn render_roaming_data(
         Err(e) => {
             tracing::error!("Failed to render SVG to PNG: {}", e);
             Err(anyhow::anyhow!("Failed to render SVG to PNG: {}", e))
+        }
+    }
+}
+
+pub async fn render_satstatus_data(
+    report_data: &Vec<SatelliteFileFormat>,
+    payload: &MessageEvent,
+) -> ApiResponse<Vec<String>> {
+    let mut response = ApiResponse::<Vec<String>>::empty();
+    tracing::debug!("Rendering satellite status data for {} blocks", report_data.len());
+    const BLOCK_TITLE_HEIGHT: f32 = 45.0;
+    const HEADER_HEIGHT: f32 = 40.0;
+    const ROW_HEIGHT: f32 = 38.0;
+    const BLOCK_SPACING: f32 = 30.0;
+    const LEFT_PADDING: f32 = 20.0;
+    const X_CALLSIGN: f32 = 20.0;
+    const X_GRIDS: f32 = 170.0;
+    const X_REPORT: f32 = 280.0;
+    const X_TIME: f32 = 540.0;
+    const COLOR_BLOCK_WIDTH: f32 = 12.0;
+    const COLOR_BLOCK_HEIGHT: f32 = 18.0;
+    const COLOR_BLOCK_TEXT_SPACING: f32 = 8.0;
+    const FOOTER_HEIGHT: f32 = 32.0;
+    const FOOTER_COLOR: &str = "#f0f2f5";
+
+    let mut all_blocks_svg = String::new();
+    let mut current_y_offset = 20.0;
+    let now_utc = chrono::Utc::now();
+
+    if report_data.is_empty() {
+        match writeln!(
+            all_blocks_svg,
+            r##"<text x="50%" y="100" text-anchor="middle" class="table-text" fill="#6e7781">No satellite data available.</text>"##
+        ) {
+            Ok(_) => {}
+            Err(e) => {
+                tracing::error!("Failed to write SVG: {}", e);
+                response.message = Some(format!("Failed to write SVG: {}", e));
+                return response;
+            }
+        };
+        current_y_offset += 120.0;
+    } else {
+        for block in report_data {
+            // draw title
+            match writeln!(
+                all_blocks_svg,
+                r##"<text x="{padding}" y="{y_pos}" class="satellite-title">{name}</text>"##,
+                padding = LEFT_PADDING,
+                y_pos = current_y_offset + BLOCK_TITLE_HEIGHT / 2.0,
+                name = &block.name
+            ) {
+                Ok(_) => {
+                    tracing::debug!("Successfully wrote SVG title for {}", &block.name);
+                }
+                Err(e) => {
+                    tracing::error!("Failed to write SVG: {}", e);
+                    response.message = Some(format!("Failed to write SVG: {}", e));
+                    return response;
+                }
+            };
+            current_y_offset += BLOCK_TITLE_HEIGHT;
+
+            // draw last_update_time
+            let element_time = chrono::DateTime::parse_from_rfc3339(&block.last_update_time)
+                    .unwrap()
+                    .with_timezone(&chrono::Utc);
+            let delta_t = now_utc.signed_duration_since(element_time).num_hours();
+            match writeln!(
+                all_blocks_svg,
+                r##"<text x="{x_time}" y="{y_pos}" class="table-text">Last update: {time} ({delta_t}h ago)</text>"##,
+                x_time = X_CALLSIGN,
+                y_pos = current_y_offset + ROW_HEIGHT / 2.0,
+                time = &block.last_update_time.replace("T", " ").replace("Z", " UTC"),
+                delta_t = delta_t
+            ) {
+                Ok(_) => {
+                    tracing::debug!("Successfully wrote SVG last update time for {}", &block.name);
+                }
+                Err(e) => {
+                    tracing::error!("Failed to write SVG: {}", e);
+                    response.message = Some(format!("Failed to write SVG: {}", e));
+                    return response;
+                }
+            };
+            current_y_offset += ROW_HEIGHT;
+
+            // draw table head
+            match writeln!(
+                all_blocks_svg,
+                r##"<g class="header">
+<rect x="0" y="{y_pos}" width="100%" height="{height}" fill="#f0f2f5" />
+<text x="{x_call}" y="{text_y}" class="table-text header-text">Callsign</text>
+<text x="{x_grid}" y="{text_y}" class="table-text header-text">Grids</text>
+<text x="{x_repo}" y="{text_y}" class="table-text header-text">Report</text>
+<text x="{x_time}" y="{text_y}" class="table-text header-text">Time</text>
+</g>"##,
+                y_pos = current_y_offset,
+                height = HEADER_HEIGHT,
+                text_y = current_y_offset + HEADER_HEIGHT / 2.0,
+                x_call = X_CALLSIGN, x_grid = X_GRIDS, x_repo = X_REPORT, x_time = X_TIME
+            ) {
+                Ok(_) => {
+                    tracing::debug!("Successfully wrote SVG table header");
+                }
+                Err(e) => {
+                    tracing::error!("Failed to write SVG: {}", e);
+                    response.message = Some(format!("Failed to write SVG: {}", e));
+                    return response;
+                }
+            };
+            current_y_offset += HEADER_HEIGHT;
+
+            let mut drawn_rows = 0;
+            for element in &block.data {
+                if drawn_rows >= 5 {
+                    break;
+                }
+
+                // draw data rows
+                for report in &element.report {
+                    let y_pos = current_y_offset + ROW_HEIGHT / 2.0;
+                    let report_text_x = X_REPORT + COLOR_BLOCK_WIDTH + COLOR_BLOCK_TEXT_SPACING;
+                    let report_time = chrono::DateTime::parse_from_rfc3339(&report.reported_time)
+                        .unwrap()
+                        .with_timezone(&chrono::Utc);
+                    let delta_t = now_utc.signed_duration_since(report_time).num_hours();
+                    match writeln!(
+                        all_blocks_svg,
+                        r##"<g class="data-row">
+   <text x="{x_callsign}" y="{y_pos}" class="table-text">{callsign}</text>
+   <text x="{x_grid}" y="{y_pos}" class="table-text">{grid}</text>
+   <rect x="{x_report}" y="{rect_y}" width="{rect_w}" height="{rect_h}" fill="{color}" rx="1" />
+   <text x="{report_text_x}" y="{y_pos}" class="table-text">{report}</text>
+   <text x="{x_time}" y="{y_pos}" class="table-text">{time} ({delta_t}h ago)</text>
+</g>"##,
+                        x_callsign = X_CALLSIGN,
+                        x_grid = X_GRIDS,
+                        x_report = X_REPORT,
+                        report_text_x = report_text_x,
+                        x_time = X_TIME,
+                        y_pos = y_pos,
+                        rect_y = y_pos - COLOR_BLOCK_HEIGHT / 2.0,
+                        rect_w = COLOR_BLOCK_WIDTH,
+                        rect_h = COLOR_BLOCK_HEIGHT,
+                        callsign = &report.callsign,
+                        grid = &report.grid_square,
+                        report = ReportStatus::from_string(&report.report).to_string(),
+                        color = ReportStatus::string_to_color_hex(&report.report),
+                        time = &report.reported_time,
+                        delta_t = delta_t
+                    ) {
+                        Ok(_) => {
+                            tracing::debug!("Successfully wrote SVG data row for {}", &report.callsign);
+                        }
+                        Err(e) => {
+                            tracing::error!("Failed to write SVG: {}", e);
+                            response.message = Some(format!("Failed to write SVG: {}", e));
+                            return response;
+                        }
+                    };
+                    current_y_offset += ROW_HEIGHT;
+                    drawn_rows += 1;
+                }
+            }
+
+            current_y_offset += BLOCK_SPACING;
+        }
+    }
+
+    let footer_y = current_y_offset;
+    current_y_offset += FOOTER_HEIGHT;
+
+    let render_time = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    let footer_svg = format!(
+        r##"    <g id="footer">
+        <rect x="0" y="{footer_y}" width="100%" height="{FOOTER_HEIGHT}" fill="{FOOTER_COLOR}" />
+        <text x="50%" y="{footer_text_y}" class="table-text footer-text" text-anchor="middle">
+            Rinko Bot v0.1.1, rendered at {time_str} BJT, 测试中
+        </text>
+        </g>"##,
+        footer_y = footer_y,
+        FOOTER_HEIGHT = FOOTER_HEIGHT,
+        FOOTER_COLOR = FOOTER_COLOR,
+        footer_text_y = footer_y + (FOOTER_HEIGHT / 2.0),
+        time_str = render_time
+    );
+
+    let total_height = current_y_offset;
+    let template_content = tokio::fs::read_to_string(SVG_SATSTATUS_TEMPLATE_PATH).await;
+
+    let template_content = match template_content {
+        Ok(content) => {
+            content
+        },
+        Err(e) => {
+            tracing::error!("Failed to read SVG template file: {}", e);
+            response.message = Some(format!("Failed to read SVG template file: {}", e));
+            return response;
+        }
+    };
+
+    let final_svg = template_content
+        .replace("{{SVG_HEIGHT}}", &total_height.to_string())
+        .replace("{{CONTENT}}", &all_blocks_svg)
+        .replace("{{FOOTER}}", &footer_svg);
+
+    // let output_path = "data/output.svg";
+    // tokio::fs::write(output_path, final_svg).await?;
+
+    let group_id = payload.group_id.clone();
+    let message_id = payload.message_id.clone();
+    let time = now_utc.to_rfc3339();
+
+    let output_path_string = format!("{}{}-{}-{}.png", SATSTATUS_PIC_PATH_PREFIX, time, group_id, message_id);
+    let png_output_path = Path::new(&output_path_string);
+
+    match render_svg_to_png(&final_svg, png_output_path).await {
+        Ok(_) => {
+            tracing::info!("Successfully rendered PNG to {:?}", png_output_path);
+            response.message = Some("image".to_string());
+            response.data = Some(vec![format!("file:///server_{}", output_path_string)]);
+            response.success = true;
+            response
+        },
+        Err(e) => {
+            tracing::error!("Failed to render SVG to PNG: {}", e);
+            response.message = Some(format!("Failed to render SVG to PNG: {}", e));
+            response
         }
     }
 }

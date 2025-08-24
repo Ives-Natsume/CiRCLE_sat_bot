@@ -99,6 +99,28 @@ impl ReportStatus {
             _ => ReportStatus::Grey,
         }
     }
+
+    pub fn to_color_hex(&self) -> &str {
+        match self {
+            ReportStatus::Blue => "#4297f3ff",
+            ReportStatus::Yellow => "#f3cd36ff",
+            ReportStatus::Orange => "#f97316",
+            ReportStatus::Red => "#ed3f3fff",
+            ReportStatus::Purple => "#946af5ff",
+            ReportStatus::Grey => "#6b7280",
+        }
+    }
+
+    pub fn string_to_color_hex(status: &str) -> &str {
+        match status.to_lowercase().as_str() {
+            "heard" => ReportStatus::Blue.to_color_hex(),
+            "telemetry only" => ReportStatus::Yellow.to_color_hex(),
+            "conflicting reports" => ReportStatus::Orange.to_color_hex(),
+            "not heard" => ReportStatus::Red.to_color_hex(),
+            "crew active" => ReportStatus::Purple.to_color_hex(),
+            _ => ReportStatus::Grey.to_color_hex(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
