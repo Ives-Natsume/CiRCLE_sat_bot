@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use crate::{
     module::amsat::prelude::*,
+    msg::prelude::MessageEvent
 };
 
 impl ReportStatus {
@@ -84,4 +85,27 @@ fn valid_uppercase(c: char) -> bool {
 // Check if char is in a-x
 fn valid_lowercase(c: char) -> bool {
     ('a'..='x').contains(&c)
+}
+
+pub fn callsign_auth(
+    callsign: &String,
+    payload: &MessageEvent,
+    admin_list: &Vec<u64>
+) -> bool {
+    // callsign may contains `/`
+    // e.g. NA1SS/0 or B0/NA1SS
+    // extracting real callsign for auth
+    let mut callsign = callsign.to_uppercase();
+    if callsign.contains('/') {
+        let parts: Vec<&str> = callsign.split('/').collect();
+        // longest part is callsign
+        callsign = parts.iter().max_by_key(|s| s.len()).unwrap_or(&callsign.as_str()).to_string();
+    }
+    let nickname = payload.sender.card.clone();
+    let user_id = payload.sender.user_id.clone();
+    if !nickname.to_uppercase().contains(&callsign) && !admin_list.contains(&user_id) {
+        return false;
+    }
+
+    true
 }

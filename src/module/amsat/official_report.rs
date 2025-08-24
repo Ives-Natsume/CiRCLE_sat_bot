@@ -2,16 +2,29 @@ use crate::{
     app_status::AppStatus, 
     fs::handler::{FileData, FileFormat, FileRequest},
     module::amsat::prelude::*,
+    module::tools::render::render_satstatus_data,
     msg::group_msg::send_group_message_to_multiple_groups,
+    msg::prelude::MessageEvent,
     response::ApiResponse,
 };
+use serde::{Deserialize, Serialize};
 use tokio::{
     sync::RwLock,
 };
-use chrono::{DateTime, Utc, Timelike, Duration};
+use chrono::{DateTime, Duration, Local, Timelike, Utc};
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 use std::collections::HashMap;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct SatStatusCache {
+    name: String,
+    status: ReportStatus,
+    report_num: u64,
+    report_time: String,    // format rfc3339
+}
+
+const SAT_STATUS_CACHE: &str = "data/sat_status_cache.json";
 
 async fn get_amsat_data(
     sat_name: &str,
@@ -49,7 +62,11 @@ async fn get_amsat_data(
                         attempt,
                         MAX_RETRIES
                     );
-                    let response: ApiResponse<Vec<String>> = ApiResponse::error(response_msg);
+                    let response = ApiResponse {
+                        success: false,
+                        data: Some(vec![response_msg]),
+                        message: Some("auto".to_string()),
+                    };
                     send_group_message_to_multiple_groups(response, &app_status).await;
                 }
             }
@@ -248,11 +265,6 @@ pub fn pack_satellite_data(reports: Vec<SatStatus>) -> Option<SatelliteFileForma
     let mut grouped: BTreeMap<String, Vec<SatStatus>> = BTreeMap::new();
 
     for report in reports {
-        // filter callsign
-        if report.callsign.contains("BH6BMJ") {
-            continue;
-        }
-
         // parse time string to chrono DateTime, UTC zone
         let datetime = match DateTime::parse_from_rfc3339(&report.reported_time) {
             Ok(dt) => dt.with_timezone(&Utc),
@@ -286,7 +298,9 @@ pub fn pack_satellite_data(reports: Vec<SatStatus>) -> Option<SatelliteFileForma
         .map(|(time, report)| SatelliteFileElement { time, report })
         .collect();
 
-    Some(SatelliteFileFormat { name, data })
+    let last_update_time = Utc::now().to_rfc3339();
+
+    Some(SatelliteFileFormat { name, last_update_time, data })
 }
 
 pub fn update_satellite_data(
@@ -377,8 +391,198 @@ pub fn update_satellite_data(
 
     SatelliteFileFormat {
         name: existing.name,
+        last_update_time: new_element.last_update_time,
         data: sorted_data,
     }
+}
+
+async fn load_sat_status_cache(
+    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
+    path: String
+) -> anyhow::Result<Vec<SatStatusCache>> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let request = FileRequest::Read {
+        path: path.into(),
+        format: FileFormat::Json,
+        responder: tx,
+    };
+
+    let tx_filerequest = tx_filerequest.write().await;
+    if let Err(e) = tx_filerequest.send(request).await {
+        tracing::error!("Failed to send file read request: {}", e);
+        return Err(anyhow::anyhow!("Failed to send file read request: {}", e));
+    }
+
+    let read_result = match rx.await {
+        Ok(data) => data,
+        Err(e) => {
+            return Err(anyhow::anyhow!("Failed to receive file read response: {}", e));
+        }
+    };
+
+    let status_cache = match read_result {
+        Ok(FileData::Json(data)) => match serde_json::from_value::<Vec<SatStatusCache>>(data) {
+            Ok(data) => data,
+            Err(e) => {
+                return Err(anyhow::anyhow!("Failed to parse satellite status cache: {}", e));
+            }
+        },
+        _ => {
+            return Err(anyhow::anyhow!("Unexpected file format received"));
+        }
+    };
+
+    Ok(status_cache)
+}
+
+async fn write_sat_status_cache(
+    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
+    status_cache: &Vec<SatStatusCache>,
+    path: String
+) -> anyhow::Result<()> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let data = serde_json::to_value(status_cache).map_err(|e| {
+        tracing::error!("Failed to serialize satellite status cache: {}", e);
+        anyhow::anyhow!("Failed to serialize satellite status cache: {}", e)
+    })?;
+    let request = FileRequest::Write {
+        path: path.into(),
+        format: FileFormat::Json,
+        data: FileData::Json(data),
+        responder: tx,
+    };
+
+    let tx_filerequest = tx_filerequest.write().await;
+    if let Err(e) = tx_filerequest.send(request).await {
+        tracing::error!("Failed to send file write request: {}", e);
+        return Err(anyhow::anyhow!("Failed to send file write request: {}", e));
+    }
+
+    match rx.await {
+        Ok(result) => match result {
+            Ok(_) => Ok(()),
+            Err(e) => Err(anyhow::anyhow!("Failed to write file: {}", e)),
+        },
+        Err(e) => Err(anyhow::anyhow!("Failed to receive file write response: {}", e)),
+    }
+}
+
+/// sat_status_cache.json, stores shortcuts about satellite status
+pub async fn sat_status_cache_handler(
+    app_status: &Arc<AppStatus>,
+) -> ApiResponse<Vec<String>> {
+    let mut response = ApiResponse::empty();
+    let mut response_data = Vec::new();
+    let tx_filerequest = app_status.file_tx.clone();
+
+    // load satellite status cache
+    let status_cache = match load_sat_status_cache(tx_filerequest.clone(), SAT_STATUS_CACHE.into()).await {
+        Ok(data) => data,
+        Err(e) => {
+            response.message = Some(format!("{}", e));
+            return response;
+        }
+    };
+
+    let mut new_cache = Vec::new();
+
+    // load official report
+    let official_report = match load_official_report_data(tx_filerequest.clone(), OFFICIAL_REPORT_DATA.into()).await {
+        Ok(data) => data,
+        Err(e) => {
+            response.message = Some(format!("{}", e));
+            return response;
+        }
+    };
+
+    // compare satellite status cache with official report
+    for report_format in official_report {
+        let sat_name = &report_format.name;
+        if report_format.data.is_empty() {
+            let time: String = Utc::now().to_rfc3339();
+            let cache_entry = SatStatusCache {
+                name: sat_name.clone(),
+                status: ReportStatus::Grey,
+                report_time: time,
+                report_num: 0,
+            };
+            new_cache.push(cache_entry);
+        }
+        for data in report_format.data {
+            let time_block = &data.time;
+            let reports = &data.report;
+            if reports.is_empty() {
+                continue;
+            }
+
+            // find the corresponding status cache entry
+            if let Some(cache_entry) = status_cache.iter().find(|entry: &&SatStatusCache| &entry.name == sat_name) {
+                // update latest data only
+                let report_time = DateTime::parse_from_rfc3339(&time_block.clone())
+                    .expect("Invalid time format in official report")
+                    .with_timezone(&Utc);
+                let cache_time = DateTime::parse_from_rfc3339(&cache_entry.report_time)
+                    .expect("Invalid time format in status cache")
+                    .with_timezone(&Utc);
+                if report_time > cache_time {
+                    // we need to update the status cache
+                    let mut status_count: HashMap<ReportStatus, usize> = HashMap::new();
+                    for report in reports {
+                        let status = ReportStatus::from_string(&report.report);
+                        *status_count.entry(status).or_insert(0) += 1;
+                    }
+                    let new_status = determine_report_status(&status_count);
+                    if new_status != cache_entry.status {
+                        response_data.push(format!(
+                            "{}: {}",
+                            sat_name, new_status.to_string()
+                        ));
+                    }
+                    // update the cache entry
+                    let mut cache_entry = cache_entry.clone();
+                    cache_entry.status = new_status;
+                    cache_entry.report_time = time_block.clone();
+                    new_cache.push(cache_entry);
+                }
+                else {
+                    // keep the cache entry
+                    new_cache.push(cache_entry.clone());
+                }
+            }
+            else {
+                let new_status = {
+                    let mut status_count: HashMap<ReportStatus, usize> = HashMap::new();
+                    for report in reports {
+                        let status = ReportStatus::from_string(&report.report);
+                        *status_count.entry(status).or_insert(0) += 1;
+                    }
+                    determine_report_status(&status_count)
+                };
+                new_cache.push(SatStatusCache {
+                    name: sat_name.clone(),
+                    status: new_status,
+                    report_time: time_block.clone(),
+                    report_num: 1,
+                });
+            }
+
+            break; // only process the latest time block
+        }
+    }
+
+    // write the updated cache back to the file
+    tracing::info!("Writing updated satellite status cache...");
+    if let Err(e) = write_sat_status_cache(tx_filerequest.clone(), &new_cache, SAT_STATUS_CACHE.into()).await {
+        response.message = Some(format!("{}", e));
+        return response;
+    }
+
+    if !response_data.is_empty() {
+        response_data.insert(0, "卫星状态更新了喵~".to_string());
+    }
+    response.success = true;
+    response.data = Some(response_data);
+    response
 }
 
 /// Scheduled task
@@ -387,13 +591,6 @@ pub async fn amsat_data_handler(
 ) -> ApiResponse<Vec<String>> {
     let mut response = ApiResponse::empty();
     let tx_filerequest = app_status.file_tx.clone();
-
-    // let update_notify: ApiResponse<Vec<String>> = ApiResponse {
-    //     success: true,
-    //     data: Some(vec!["正在更新 AMSAT 数据...\n受文件锁影响暂时无法使用查询命令".to_string()]),
-    //     message: None,
-    // };
-    // send_group_message_to_multiple_groups(update_notify, &app_status).await;
 
     match check_official_data_file_exist(tx_filerequest.clone()).await {
         true => {},
@@ -534,6 +731,7 @@ pub fn determine_report_status(
 pub async fn query_satellite_status(
     input: &str,
     app_status: &Arc<AppStatus>,
+    payload: &MessageEvent
 ) -> ApiResponse<Vec<String>> {
     tracing::debug!("Querying satellite status for input: {}", input);
     let mut response = ApiResponse::empty();
@@ -547,6 +745,14 @@ pub async fn query_satellite_status(
         }
     };
 
+    // let latest_data = match load_sat_status_cache(tx_filerequest.clone(), SAT_STATUS_CACHE.into()).await {
+    //     Ok(data) => data,
+    //     Err(e) => {
+    //         response.message = Some(format!("{}", e));
+    //         return response;
+    //     }
+    // };
+
     let latest_data = match load_official_report_data(tx_filerequest.clone(), OFFICIAL_STATUS_CACHE.into()).await {
         Ok(data) => data,
         Err(e) => {
@@ -557,7 +763,7 @@ pub async fn query_satellite_status(
 
     let inputs: Vec<&str> = input.split('/').collect();
     let mut match_sat = Vec::new();
-    let mut response_data = Vec::new();
+    // let mut response_data = Vec::new();
     for sat in inputs {
         let match_sat_raw = search_satellites(sat, &satellite_lists, 0.95);
         for sat in match_sat_raw {
@@ -570,60 +776,98 @@ pub async fn query_satellite_status(
         response.message = Some("^ ^)/".to_string());
         return response;
     }
+
+    // for official_name in match_sat {
+    //     let sat_data_cache = latest_data.iter().find(|f| f.name == official_name);
+    //     response_data.push(format!(
+    //         "{}吗，交给Rinko喵~",
+    //         official_name
+    //     ));
+    //     if let Some(sat_record) = sat_data_cache {
+    //         // get latest report
+    //         if sat_record.status == ReportStatus::Grey {
+    //             response_data.push(format!("过去两天没有{}的报告呢，去上传报告吧", official_name));
+    //             continue;
+    //         }
+    //         let report_time = DateTime::parse_from_rfc3339(&sat_record.report_time)
+    //             .expect("Invalid time format in data element")
+    //             .with_timezone(&Utc);
+    //         let now = Utc::now();
+    //         let time_diff = (now - report_time).num_hours();
+
+    //         response_data.push(format!(
+    //             "大约{}小时前有{}个报告，{}的说",
+    //             time_diff,
+    //             sat_record.report_num,
+    //             sat_record.status.to_chinese_string()
+    //         ));
+    //     } else {
+    //         response_data.push(format!("过去两天没有{}的报告呢，去上传报告吧", official_name));
+    //     }
+    //     response_data.push("\n".to_string());
+    // }
+
+    let mut matched_sat_data: Vec<SatelliteFileFormat> = Vec::new();
     for official_name in match_sat {
         let sat_data = latest_data.iter().find(|f| f.name == official_name);
-        response_data.push(format!(
-            "{}吗，交给Rinko喵~",
-            official_name
-        ));
+        // response_data.push(format!(
+        //     "{}吗，交给Rinko喵~",
+        //     official_name
+        // ));
         if let Some(sat_record) = sat_data {
             // get latest report
-            for data_element in &sat_record.data {
-                if data_element.report.is_empty() {
-                    continue;
-                }
-                let mut report_status_count: HashMap<ReportStatus, usize> = HashMap::new();
-                let mut report_total_count = 0;
-                for report in &data_element.report {
-                    let status = ReportStatus::from_string(&report.report.clone());
-                    *report_status_count.entry(status).or_default() += 1;
-                    report_total_count += 1;
-                }
-                let report_status = determine_report_status(&report_status_count);
-                let report_timeblock = DateTime::parse_from_rfc3339(&data_element.time)
-                    .expect("Invalid time format in data element")
-                    .with_timezone(&Utc);
-                let now = Utc::now();
-                let time_diff = (now - report_timeblock).num_hours();
+            // for data_element in &sat_record.data {
+            //     if data_element.report.is_empty() {
+            //         continue;
+            //     }
+            //     let mut report_status_count: HashMap<ReportStatus, usize> = HashMap::new();
+            //     let mut report_total_count = 0;
+            //     for report in &data_element.report {
+            //         let status = ReportStatus::from_string(&report.report.clone());
+            //         *report_status_count.entry(status).or_default() += 1;
+            //         report_total_count += 1;
+            //     }
+            //     let report_status = determine_report_status(&report_status_count);
+            //     let report_timeblock = DateTime::parse_from_rfc3339(&data_element.time)
+            //         .expect("Invalid time format in data element")
+            //         .with_timezone(&Utc);
+            //     let now = Utc::now();
+            //     let time_diff = (now - report_timeblock).num_hours();
 
-                response_data.push(format!(
-                    "大约{}小时前有{}个报告，{}的说",
-                    time_diff,
-                    report_total_count,
-                    report_status.to_chinese_string()
-                ));
-                break;
-            }
-        } else {
-            response_data.push(format!("过去两天没有{}的报告呢，去上传报告吧", official_name));
+            //     response_data.push(format!(
+            //         "大约{}小时前有{}个报告，{}的说",
+            //         time_diff,
+            //         report_total_count,
+            //         report_status.to_chinese_string()
+            //     ));
+            //     response_data.push(format!(
+            //         "数据更新时间: {}",
+            //         sat_record.last_update_time
+            //     ));
+            //     break;
+            // }
+            matched_sat_data.push(sat_record.clone());
         }
-        response_data.push("\n".to_string());
+        // response_data.push("\n".to_string());
     }
 
-    if response_data.iter().all(|s| s.trim().is_empty()) {
-        response.message = Some("^ ^)/".to_string());
-        return response;
-    }
+    // if response_data.iter().all(|s| s.trim().is_empty()) {
+    //     response.message = Some("^ ^)/".to_string());
+    //     return response;
+    // }
 
-    while let Some(last) = response_data.last() {
-        if last.trim().is_empty() {
-            response_data.pop();
-        } else {
-            break;
-        }
-    }
+    // while let Some(last) = response_data.last() {
+    //     if last.trim().is_empty() {
+    //         response_data.pop();
+    //     } else {
+    //         break;
+    //     }
+    // }
 
-    response.success = true;
-    response.data = Some(response_data);
+    // response.success = true;
+    // response.data = Some(response_data);
+    // response
+
+    response = render_satstatus_data(&matched_sat_data, payload).await;
     response
 }

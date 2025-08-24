@@ -1,4 +1,6 @@
 {
+  "cmd_report_user_conflict_report": "There is conflict in local reports, please check if the status is correct, and re-upload to correct former report",
+  "cmd_report_user_no_template": "Please create report template first (use \"/create\" command)",
   "config_file_empty": "Config file is empty",
   "config_file_parse_error": "Failed to parse config file",
   "config_file_read_error": "Failed to read config file",

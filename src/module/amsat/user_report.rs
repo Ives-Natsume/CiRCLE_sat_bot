@@ -1,5 +1,5 @@
 use crate::{
-    app_status::AppStatus, fs::handler::{FileData, FileFormat, FileRequest}, module::{amsat::{official_report, prelude::*}, prelude::*}, msg::prelude::{MessageElement, MessageEvent}, response::ApiResponse
+    app_status::AppStatus, fs::handler::{FileData, FileFormat, FileRequest}, i18n, module::{amsat::{official_report, prelude::*}, prelude::*}, msg::prelude::MessageEvent, response::ApiResponse
 };
 use tokio::{
     sync::RwLock,
@@ -20,7 +20,7 @@ pub async fn data_parser(
     let args: Vec<&str> = args.split_whitespace().collect();
     if args.len() < 5 {
         // abort if not enough arguments
-        return Err(anyhow::anyhow!("Not enough arguments"));
+        return Err(anyhow::anyhow!("参数不足喵，格式是 /report <呼号> <网格> <卫星名称> <报告时间> <报告状态> 喵"));
     }
 
     let callsign = args[0].to_string();
@@ -131,10 +131,9 @@ pub async fn create_report_template(
     //     Err(e) => return Err(anyhow::anyhow!("时间设定失败: {}", e)),
     // };
 
-    let _reported_time = match DateTime::parse_from_rfc3339(args[1]) {
-        Ok(datetime) => datetime,
-        Err(e) => return Err(anyhow::anyhow!("时间设定失败: {}", e)),
-    };
+    if args.len() < 2 {
+        return Err(anyhow::anyhow!("参数不足喵，格式是 /create <卫星名称> <报告时间> 喵"));
+    }
 
     // let year = reported_time.year();
     // let month = reported_time.month();
@@ -160,7 +159,7 @@ pub async fn create_report_template(
 
     let match_sat = search_satellites(args[0], &satellite_lists, 0.95);
     if match_sat.is_empty() || match_sat.len() != 1 {
-        return Err(anyhow::anyhow!("无法选中卫星"))
+        return Err(anyhow::anyhow!("无法选中卫星喵，可能的卫星有: {:?}", match_sat))
     }
     let match_sat = match_sat[0];
 
@@ -170,14 +169,44 @@ pub async fn create_report_template(
         Err(e) => return Err(anyhow::anyhow!("{}", e)),
     };
 
+    let time = match args[1].to_lowercase().as_str() {
+        "now" | "current" | "nowutc" => Utc::now().to_rfc3339(),
+        _ => args[1].to_string(),
+    };
+
+    // check if the time is valid
+    if DateTime::parse_from_rfc3339(&time).is_err() {
+        return Err(anyhow::anyhow!("报告时间格式错误，请使用 /create <卫星名称> now 参数创建当前时间的报告模版，或者 RFC3339 格式喵\n例如: 2023-10-01T12:00:00Z"));
+    }
+
     let new_element: SatelliteFileElement = SatelliteFileElement {
-        time: args[1].to_string(),
+        time,
         report: Vec::new()
     };
 
     let mut matched = false;
     for item in user_report_data.iter_mut() {
         if item.name == match_sat {
+            // check if two template has little delta time
+            if let Some(last_time) = item.data.last().map(|e| e.time.clone()) {
+                let last_time: DateTime<Utc> = match DateTime::parse_from_rfc3339(&last_time) {
+                    Ok(dt) => dt.with_timezone(&Utc),
+                    Err(e) => {
+                        tracing::error!("Failed to parse last_time: {}", e);
+                        continue;
+                    }
+                };
+                let new_time: DateTime<Utc> = match DateTime::parse_from_rfc3339(&new_element.time) {
+                    Ok(dt) => dt.with_timezone(&Utc),
+                    Err(e) => {
+                        tracing::error!("Failed to parse new_element time: {}", e);
+                        continue;
+                    }
+                };
+                if (last_time - new_time).abs() < chrono::Duration::minutes(15) {
+                    return Err(anyhow::anyhow!("本次过境的模板已经被创建了喵"));
+                }
+            }
             // reset the old data
             item.data = vec![new_element.clone()];
             matched = true;
@@ -188,6 +217,7 @@ pub async fn create_report_template(
     if !matched {
         user_report_data.push(SatelliteFileFormat {
             name: match_sat.to_string(),
+            last_update_time: chrono::Utc::now().to_rfc3339(),
             data: vec![new_element],
         });
     }
@@ -213,13 +243,21 @@ pub async fn add_user_report(
 
     // Args: Sat-name Callsign Grid Status
     let args: Vec<&str> = args.split_whitespace().collect();
+
+    if args.len() < 4 {
+        return ApiResponse::<Vec<String>>::error("参数不足喵，格式是 /report <卫星名称> <呼号> <网格> <状态> 喵".to_string());
+    }
+
     let callsign = args[1].to_uppercase().to_string();
     let sat_name = args[0].to_string();
     let grid = args[2].to_string();
     let status = args[3].to_lowercase().to_string();
 
-    let nickname = payload.sender.card.clone();
-    if !nickname.to_uppercase().contains(&callsign) {
+    let admin_id: Vec<u64> = {
+        let config_guard = app_status.config.read().await;
+        config_guard.bot_config.admin_id.clone()
+    };
+    if !callsign_auth(&callsign, payload, &admin_id) {
         return ApiResponse::error("无法验证你的身份喵".to_string());
     }
 
@@ -245,7 +283,7 @@ pub async fn add_user_report(
 
     let match_sat = search_satellites(&sat_name, &satellite_lists, 0.95);
     if match_sat.is_empty() || match_sat.len() != 1 {
-        return ApiResponse::<Vec<String>>::error("无法选中卫星喵>_");
+        return ApiResponse::<Vec<String>>::error(format!("无法选中卫星喵，可能的卫星有: {:?}", match_sat));
     }
     let match_sat = match_sat[0];
 
@@ -256,7 +294,8 @@ pub async fn add_user_report(
 
     let mut found = false;
     for item in user_report_data.iter_mut() {
-        if item.name == match_sat {
+        if item.name == match_sat && item.data.len() > 0 {
+            found = true;
             let mut element = item.data[0].clone();
             let time = element.time.clone();
             let report = SatStatus {
@@ -274,14 +313,13 @@ pub async fn add_user_report(
             }
             element.report.push(report);
             item.data = vec![element];
-            found = true;
             break;
         }
     }
 
     // return warn if the satellite is not found
     if !found {
-        return ApiResponse::<Vec<String>>::error("请先创建卫星报告模板喵");
+        return ApiResponse::<Vec<String>>::error(format!("{}", i18n::text("cmd_report_user_no_template")));
     }
 
     // check if reports have conflicts
@@ -298,7 +336,7 @@ pub async fn add_user_report(
     }
     let report_status = official_report::determine_report_status(&report_status_count);
     if report_status == ReportStatus::Orange {
-        response_data.push("报告发生冲突了喵，但是已经添加到队列中，请检查报告是否正确呢，如果需要更改再次提交就可以喵".to_string());
+        response_data.push(i18n::text("cmd_report_user_conflict_report"));
     }
 
     if let Err(e) = write_report_data(
@@ -316,6 +354,96 @@ pub async fn add_user_report(
     ));
     response.data = Some(response_data);
     response
+}
+
+pub async fn remove_user_report(
+    app_status: Arc<AppStatus>,
+    args: &String,
+    payload: &MessageEvent,
+) -> ApiResponse<Vec<String>> {
+    // Args: remove <satellite_name> <Callsign>
+    let args: Vec<&str> = args.split_whitespace().collect();
+    if args.len() < 3 {
+        return ApiResponse::<Vec<String>>::error("参数不足喵，格式是 /report remove <卫星名称> <呼号> 喵".to_string());
+    }
+
+    // read satellite name and callsign from args
+    let satellite_name = args.get(1).cloned().unwrap_or_default();
+    let callsign = args.get(2).cloned().unwrap_or_default().to_uppercase();
+
+    // load satellite lists
+    let tx_filerequest = app_status.file_tx.clone();
+    let satellite_lists = match load_satellites_list(tx_filerequest.clone()).await {
+        Ok(data) => data,
+        Err(e) => {
+            return ApiResponse::<Vec<String>>::error(format!("可用卫星列表加载失败: {}", e));
+        }
+    };
+
+    // get the satellite name from the list
+    let match_sat = search_satellites(satellite_name, &satellite_lists, 0.95);
+    if match_sat.is_empty() || match_sat.len() != 1 {
+        return ApiResponse::<Vec<String>>::error(format!("无法选中卫星喵，可能的卫星有: {:?}", match_sat));
+    }
+    let match_sat = match_sat[0];
+
+    // auth user
+    let admin_id: Vec<u64> = {
+        let config_guard = app_status.config.read().await;
+        config_guard.bot_config.admin_id.clone()
+    };
+    if !callsign_auth(&callsign.to_string(), payload, &admin_id) {
+        return ApiResponse::error("无法验证你的身份喵".to_string());
+    }
+
+    // read user_report_data
+    let user_report_data = match read_user_report_file(&app_status).await {
+        Ok(data) => data,
+        Err(e) => return ApiResponse::<Vec<String>>::error(format!("{}", e)),
+    };
+
+    // remove user report
+    let mut found_template = false;
+    let mut found_callsign = false;
+    let mut new_data: Vec<SatelliteFileFormat> = Vec::new();
+    for item in user_report_data {
+        if item.name == match_sat {
+            found_template = true;
+            let mut new_element = item.data[0].clone();
+            // check if the callsign exists in the report
+            if new_element.report.iter().any(|r| r.callsign == callsign) {
+                found_callsign = true;
+            }
+            if found_callsign {
+                // remove the callsign report
+                new_element.report.retain(|r| r.callsign != callsign);
+            } else {
+                return ApiResponse::<Vec<String>>::error(format!("{} 的报告不存在喵", callsign));
+            }
+            new_data.push(SatelliteFileFormat {
+                name: item.name.clone(),
+                last_update_time: chrono::Utc::now().to_rfc3339(),
+                data: vec![new_element],
+            });
+        } else {
+            new_data.push(item);
+        }
+    }
+
+    if found_template == false {
+        return ApiResponse::<Vec<String>>::error(format!("{}", i18n::text("cmd_report_user_no_template")));
+    }
+
+    let tx_filerequest = app_status.file_tx.clone();
+    if let Err(e) = write_report_data(
+        tx_filerequest.clone(),
+        &new_data,
+        USER_REPORT_DATA.into(),
+    ).await {
+        return ApiResponse::<Vec<String>>::error(format!("{}", e));
+    }
+
+    ApiResponse::<Vec<String>>::ok(vec![format!("{} 的报告已删除喵", callsign)])
 }
 
 pub async fn push_user_report(

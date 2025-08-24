@@ -4,10 +4,12 @@ use chrono::{self, DateTime, Timelike, Utc};
 use crate::{
     app_status::AppStatus,
     module::{
-        amsat::{self, prelude::*},
-        solar_image
+        amsat::{self, prelude::*, official_report},
+        solar_image,
+        tools::render::SATSTATUS_PIC_PATH_PREFIX,
     },
-    msg::group_msg::send_group_message_to_multiple_groups, response
+    msg::group_msg::send_group_message_to_multiple_groups,
+    response
 };
 
 pub async fn scheduled_task_handler(
@@ -17,6 +19,7 @@ pub async fn scheduled_task_handler(
     let _amsat_task = tokio::spawn(async move {
         const MAX_RETRIES: u32 = 3;
         const RETRY_DELAY: Duration = Duration::from_secs(60);
+        const TIMEOUT: Duration = Duration::from_secs(60 * 5);
 
         loop {
             // schedule to run at xx:02, xx:17, xx:32, xx:47 every hour
@@ -56,24 +59,45 @@ pub async fn scheduled_task_handler(
             let mut attempt = 0;
             loop {
                 attempt += 1;
+                if attempt > MAX_RETRIES {
+                    break;
+                }
                 tracing::info!("更新 AMSAT 数据，尝试次数 {}/{}", attempt, MAX_RETRIES);
+                let timeout = tokio::time::timeout(TIMEOUT, async {
+                    // Ensure the request does not block indefinitely
+                    amsat::official_report::amsat_data_handler(&app_status_cp1).await
+                });
 
-                let response = amsat::official_report::amsat_data_handler(&app_status_cp1).await;
-                let success = response.success;
-                send_group_message_to_multiple_groups(response, &app_status_cp1).await;
-                if !success {
-                    if attempt >= MAX_RETRIES {
+                let response = timeout.await;
+                let response = match response {
+                    Ok(response) => response,
+                    Err(e) => {
+                        let err_msg = format!("AMSAT 数据更新超时，尝试次数 {} / {}: {}\n{}s 后重试",
+                            attempt,
+                            MAX_RETRIES,
+                            e,
+                            RETRY_DELAY.as_secs()
+                        );
+                        tracing::error!("{}", err_msg);
+                        if attempt >= MAX_RETRIES {
                             tracing::error!("AMSAT 更新失败，尝试次数: {}", MAX_RETRIES);
                             break;
+                        }
+                        tokio::time::sleep(RETRY_DELAY).await;
+                        continue;
                     }
-                    tracing::warn!("{}s 后重试", RETRY_DELAY.as_secs());
-                    tokio::time::sleep(RETRY_DELAY).await;
-                }
-                else {
+                };
+                let success = response.success;
+                send_group_message_to_multiple_groups(response, &app_status_cp1).await;
+                if success {
                     tracing::info!("AMSAT 数据更新成功");
                     break;
                 }
             }
+
+            // handle the cache
+            // let response = official_report::sat_status_cache_handler(&app_status_cp1).await;
+            // send_group_message_to_multiple_groups(response, &app_status_cp1).await;
         }
     });
 
@@ -214,4 +238,52 @@ pub async fn scheduled_task_handler(
             }
         }
     });
+
+    let _old_satstatus_img_cleanup_task = tokio::spawn(start_cleanup_task());
+}
+
+async fn start_cleanup_task() {
+    let mut interval = tokio::time::interval(Duration::from_secs(60 * 10));
+
+    loop {
+        interval.tick().await;
+        if let Err(e) = cleanup_old_files().await {
+            tracing::error!("Cleanup task failed: {}", e);
+        }
+    }
+}
+
+async fn cleanup_old_files() -> anyhow::Result<()> {
+    let now = Utc::now();
+    let dir = std::path::Path::new(SATSTATUS_PIC_PATH_PREFIX);
+
+    if !dir.exists() {
+        std::fs::create_dir_all(dir)?;
+    }
+
+    let re = regex::Regex::new(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))").unwrap();
+
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.extension().map(|ext| ext == "png").unwrap_or(false) {
+            if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
+                if let Some(captures) = re.captures(file_name) {
+                    let time_str = &captures[1];
+                    if let Ok(file_time) = DateTime::parse_from_rfc3339(time_str) {
+                        let file_time_utc = file_time.with_timezone(&Utc);
+                        let age = now.signed_duration_since(file_time_utc).num_seconds();
+
+                        if age > 60 * 10 {
+                            tracing::info!("Deleting expired file: {:?}", path);
+                            let _ = tokio::fs::remove_file(&path).await;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
