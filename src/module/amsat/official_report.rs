@@ -62,11 +62,7 @@ async fn get_amsat_data(
                         attempt,
                         MAX_RETRIES
                     );
-                    let response = ApiResponse {
-                        success: false,
-                        data: Some(vec![response_msg]),
-                        message: Some("auto".to_string()),
-                    };
+                    let response: ApiResponse<Vec<String>> = ApiResponse::error(response_msg);
                     send_group_message_to_multiple_groups(response, &app_status).await;
                 }
             }

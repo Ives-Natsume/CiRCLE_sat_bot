@@ -56,7 +56,6 @@ pub async fn send_group_message_to_multiple_groups(
     response: ApiResponse<Vec<String>>,
     app_status: &Arc<AppStatus>,
 ) {
-    // TODO: message type auto, banning bot from sending auto system msg
     if response == ApiResponse::empty() {
         return ;
     };

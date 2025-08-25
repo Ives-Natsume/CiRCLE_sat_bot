@@ -357,6 +357,9 @@ pub async fn add_roaming(
         response.data = Some(vec![format!("{}的漫游信息已添加: {}", callsign, grid)]);
     }
 
+    // sort roaming data by submit time, descending
+    roaming_data.sort_by(|a, b| b.submit_time.cmp(&a.submit_time));
+
     match write_roaming_data_to_file(&tx_filerequest, &roaming_data).await {
         Ok(_) => {}
         Err(e) => {
