@@ -758,19 +758,29 @@ pub async fn query_satellite_status(
     };
 
     let inputs: Vec<&str> = input.split('/').collect();
+    if inputs.len() > 7 {
+        response.message = Some("干嘛，，，".to_string());
+        return response;
+    }
     let mut match_sat = Vec::new();
     // let mut response_data = Vec::new();
-    for sat in inputs {
-        let match_sat_raw = search_satellites(sat, &satellite_lists, 0.95);
-        for sat in match_sat_raw {
-            if !match_sat.contains(&sat) {
-                match_sat.push(sat);
+    
+    // check if input contains `fm`
+    if inputs.iter().any(|&s| s.to_ascii_lowercase() == "fm") {
+        match_sat = vec!["AO-91", "PO-101[FM]", "ISS-FM", "SO-50", "AO-123", "SO-124", "SO-125"];
+    } else {
+        for sat in inputs {
+            let match_sat_raw = search_satellites(sat, &satellite_lists, 0.95);
+            for sat in match_sat_raw {
+                if !match_sat.contains(&sat) {
+                    match_sat.push(sat);
+                }
             }
         }
-    }
-    if match_sat.is_empty() {
-        response.message = Some("^ ^)/".to_string());
-        return response;
+        if match_sat.is_empty() {
+            response.message = Some("^ ^)/".to_string());
+            return response;
+        }
     }
 
     // for official_name in match_sat {

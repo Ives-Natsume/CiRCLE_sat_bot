@@ -84,7 +84,7 @@ pub async fn render_roaming_data(
                 continue;
             }
         };
-        let color = match map_time_to_color(&submit_time_utc, &now_time) {
+        let color = match map_time_to_color(&submit_time_utc, &now_time, 0.0, 168.0) {
             Ok(color) => color,
             Err(e) => {
                 tracing::error!("Failed to map time to color: {}", e);
@@ -193,17 +193,13 @@ fn convert_bjt_to_utc_iso8601(bjt_string: &str) -> anyhow::Result<String> {
 /// 将时间差映射为HEX颜色
 /// target_time: ISO8601格式，如"2025-08-25T10:00:00Z"
 /// now_time: ISO8601格式，如"2025-08-25T15:00:00Z"
-pub fn map_time_to_color(target_time: &str, now_time: &str) -> anyhow::Result<String> {
+pub fn map_time_to_color(target_time: &str, now_time: &str, min_hours: f64, max_hours: f64) -> anyhow::Result<String> {
     // 解析输入时间
     let target = target_time.parse::<chrono::DateTime<Utc>>()?;
     let now = now_time.parse::<chrono::DateTime<Utc>>()?;
 
     // 计算小时差
     let delta = (now - target).num_seconds().abs() as f64 / 3600.0;
-
-    // 定义阈值
-    let min_hours = 0.0;   // 高时效性（绿）
-    let max_hours = 168.0;  // 低时效性（红）
 
     // 颜色锚点
     let green = (125u8, 227u8, 61u8);      // #7de33dff
@@ -361,6 +357,13 @@ pub async fn render_satstatus_data(
                         .unwrap()
                         .with_timezone(&chrono::Utc);
                     let delta_t = now_utc.signed_duration_since(report_time).num_hours();
+                    let color_time = match map_time_to_color(&report.reported_time, &now_utc.to_rfc3339(), 0.0, 12.0) {
+                        Ok(color) => color,
+                        Err(e) => {
+                            tracing::error!("Failed to map time to color: {}", e);
+                            "#808080".to_string() // 默认灰色
+                        }
+                    };
                     match writeln!(
                         all_blocks_svg,
                         r##"<g class="data-row">
@@ -368,13 +371,15 @@ pub async fn render_satstatus_data(
    <text x="{x_grid}" y="{y_pos}" class="table-text">{grid}</text>
    <rect x="{x_report}" y="{rect_y}" width="{rect_w}" height="{rect_h}" fill="{color}" rx="1" />
    <text x="{report_text_x}" y="{y_pos}" class="table-text">{report}</text>
-   <text x="{x_time}" y="{y_pos}" class="table-text">{time} ({delta_t}h ago)</text>
+   <rect x="{x_time}" y="{rect_y}" width="{rect_w}" height="{rect_h}" fill="{color_time}" rx="1" />
+   <text x="{x_time_text}" y="{y_pos}" class="table-text">{time} ({delta_t}h ago)</text>
 </g>"##,
                         x_callsign = X_CALLSIGN,
                         x_grid = X_GRIDS,
                         x_report = X_REPORT,
                         report_text_x = report_text_x,
                         x_time = X_TIME,
+                        x_time_text = X_TIME + COLOR_BLOCK_WIDTH + COLOR_BLOCK_TEXT_SPACING,
                         y_pos = y_pos,
                         rect_y = y_pos - COLOR_BLOCK_HEIGHT / 2.0,
                         rect_w = COLOR_BLOCK_WIDTH,
