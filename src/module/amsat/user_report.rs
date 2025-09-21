@@ -161,7 +161,7 @@ pub async fn create_report_template(
     if match_sat.is_empty() || match_sat.len() != 1 {
         return Err(anyhow::anyhow!("无法选中卫星喵，可能的卫星有: {:?}", match_sat))
     }
-    let match_sat = match_sat[0];
+    let match_sat = match_sat[0].clone();
 
     // TODO: finish the file read/write
     let mut user_report_data = match read_user_report_file(&app_status).await {
@@ -285,7 +285,7 @@ pub async fn add_user_report(
     if match_sat.is_empty() || match_sat.len() != 1 {
         return ApiResponse::<Vec<String>>::error(format!("无法选中卫星喵，可能的卫星有: {:?}", match_sat));
     }
-    let match_sat = match_sat[0];
+    let match_sat = match_sat[0].clone();
 
     let mut user_report_data = match read_user_report_file(&app_status).await {
         Ok(data) => data,
@@ -385,7 +385,7 @@ pub async fn remove_user_report(
     if match_sat.is_empty() || match_sat.len() != 1 {
         return ApiResponse::<Vec<String>>::error(format!("无法选中卫星喵，可能的卫星有: {:?}", match_sat));
     }
-    let match_sat = match_sat[0];
+    let match_sat = match_sat[0].clone();
 
     // auth user
     let admin_id: Vec<u64> = {

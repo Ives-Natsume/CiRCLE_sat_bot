@@ -140,8 +140,14 @@ pub fn search_satellites<'a>(
     input: &str,
     satellite_list: &'a SatelliteList,
     threshold: f64,
-) -> Vec<&'a str> {
+) -> Vec<String> {
     let mut results = Vec::new();
+
+    // check if hard match hits results
+    let hard_match_results = search_satellites_hard_match(input, satellite_list);
+    if !hard_match_results.is_empty() {
+        return hard_match_results;
+    }
 
     for sat in &satellite_list.satellites {
         let mut names = vec![&sat.official_name];
@@ -150,7 +156,7 @@ pub fn search_satellites<'a>(
         for name in names {
             let score = jaro_winkler(&input.to_lowercase(), &name.to_lowercase());
             if score >= threshold {
-                results.push((score, sat.official_name.as_str()));
+                results.push((score, sat.official_name.clone()));
                 break;
             }
         }
@@ -158,6 +164,24 @@ pub fn search_satellites<'a>(
 
     results.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
     results.into_iter().map(|(_, name)| name).collect()
+}
+
+fn search_satellites_hard_match(
+    input: &str,
+    satellite_list: &SatelliteList,
+) -> Vec<String> {
+    let mut results = Vec::new();
+    let input_normalized = string_normalize(input);
+
+    for sat in &satellite_list.satellites {
+        if string_normalize(&sat.official_name) == input_normalized
+            || sat.aliases.iter().any(|alias| string_normalize(alias) == input_normalized)
+        {
+            results.push(sat.official_name.clone());
+        }
+    }
+
+    results
 }
 
 /// 将用户输入的时间字符串解析为 DateTime<Utc>
@@ -189,4 +213,13 @@ pub fn _parse_user_datetime(input: &str) -> anyhow::Result<DateTime<Utc>> {
         .ok_or_else(|| anyhow::anyhow!("无法唯一确定带时区的时间"))?;
 
     Ok(dt_with_tz.with_timezone(&Utc))
+}
+
+/// Normalize a string by trimming whitespace, converting to lowercase, and removing punctuation.
+pub fn string_normalize(s: &str) -> String {
+    s.trim()
+        .to_lowercase()
+        .chars()
+        .filter(|c| !c.is_ascii_punctuation())
+        .collect()
 }
