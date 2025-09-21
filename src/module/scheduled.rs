@@ -4,7 +4,7 @@ use chrono::{self, DateTime, Timelike, Utc};
 use crate::{
     app_status::AppStatus,
     module::{
-        amsat::{self, prelude::*, official_report},
+        amsat::{self, prelude::*},
         solar_image,
         tools::render::SATSTATUS_PIC_PATH_PREFIX,
     },

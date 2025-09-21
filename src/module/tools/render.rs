@@ -3,15 +3,13 @@ use usvg::{Transform, Tree, Options};
 use chrono::Utc;
 use tiny_skia::Pixmap;
 use fontdb::Database;
-use std::{path::Path, fs, fmt::Write};
+use std::{path::Path, fmt::Write};
 use crate::{
-    app_status::AppStatus,
-    fs::handler::{FileData, FileFormat, FileRequest},
     module::{
         amsat::prelude::{
-            ReportStatus, SatStatus, SatelliteFileElement, SatelliteFileFormat
+            ReportStatus, SatelliteFileFormat
         },
-        tools::roaming::{RoamingData, UserRoamingData}
+        tools::roaming::{UserRoamingData}
     }, msg::prelude::MessageEvent, response::ApiResponse
 };
 

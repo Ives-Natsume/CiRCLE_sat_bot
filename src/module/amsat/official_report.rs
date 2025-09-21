@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use tokio::{
     sync::RwLock,
 };
-use chrono::{DateTime, Duration, Local, Timelike, Utc};
+use chrono::{DateTime, Duration, Timelike, Utc};
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 use std::collections::HashMap;
@@ -733,6 +733,12 @@ pub async fn query_satellite_status(
     let mut response = ApiResponse::empty();
     let tx_filerequest = app_status.file_tx.clone();
 
+    let inputs: Vec<&str> = input.split('/').collect();
+    if inputs.len() > 7 {
+        response.message = Some("干嘛，，，".to_string());
+        return response;
+    }
+
     let satellite_lists = match load_satellites_list(tx_filerequest.clone()).await {
         Ok(data) => data,
         Err(e) => {
@@ -757,17 +763,14 @@ pub async fn query_satellite_status(
         }
     };
 
-    let inputs: Vec<&str> = input.split('/').collect();
-    if inputs.len() > 7 {
-        response.message = Some("干嘛，，，".to_string());
-        return response;
-    }
-    let mut match_sat = Vec::new();
-    // let mut response_data = Vec::new();
-    
+    let mut match_sat: Vec<String> = Vec::new();
+
     // check if input contains `fm`
     if inputs.iter().any(|&s| s.to_ascii_lowercase() == "fm") {
-        match_sat = vec!["AO-91", "PO-101[FM]", "ISS-FM", "SO-50", "AO-123", "SO-124", "SO-125"];
+        match_sat = vec!["AO-91", "PO-101[FM]", "ISS-FM", "SO-50", "AO-123", "SO-124", "SO-125"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
     } else {
         for sat in inputs {
             let match_sat_raw = search_satellites(sat, &satellite_lists, 0.95);

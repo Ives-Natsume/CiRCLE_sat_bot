@@ -78,7 +78,7 @@ impl ReportStatus {
         }
     }
 
-    pub fn to_chinese_string(&self) -> String {
+    pub fn _to_chinese_string(&self) -> String {
         match self {
             ReportStatus::Blue => "转发器已开机".to_string(),
             ReportStatus::Yellow => "只有遥测/信标".to_string(),
