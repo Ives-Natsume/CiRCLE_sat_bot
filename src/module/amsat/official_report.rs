@@ -314,7 +314,7 @@ pub fn update_satellite_data(
 
     // Group new reports by time block
     for report in new_element.data {
-        // Filter out reports that are too old
+        // Filter out reports that are outdated
         let report_time = DateTime::parse_from_rfc3339(&report.time)
             .expect("Invalid time format in report")
             .with_timezone(&Utc);
@@ -387,7 +387,7 @@ pub fn update_satellite_data(
 
     SatelliteFileFormat {
         name: existing.name,
-        last_update_time: new_element.last_update_time,
+        last_update_time: now.to_rfc3339(),
         data: sorted_data,
     }
 }
