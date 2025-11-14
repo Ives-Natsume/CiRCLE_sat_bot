@@ -16,6 +16,7 @@ lazy_static = "1.5.0"
 regex = "1.11.1"
 reqwest = { version = "0.12.22", features = ["json"] }
 resvg = "0.45.1"
+scraper = "0.24.0"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.141"
 strsim = "0.11.1"

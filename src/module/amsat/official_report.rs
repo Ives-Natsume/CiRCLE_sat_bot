@@ -1,7 +1,7 @@
 use crate::{
     app_status::AppStatus, 
     fs::handler::{FileData, FileFormat, FileRequest},
-    module::amsat::prelude::*,
+    module::amsat::{prelude::*, amsat_scraper},
     module::tools::render::render_satstatus_data,
     msg::group_msg::send_group_message_to_multiple_groups,
     msg::prelude::MessageEvent,
@@ -142,6 +142,33 @@ async fn check_official_data_file_exist(
             return false;
         }
     }
+}
+
+pub async fn write_satellite_list(
+    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
+    satellite_list: &SatelliteList,
+) -> anyhow::Result<()> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+
+    let toml_data = toml::to_string(&satellite_list)
+        .map_err(|e| anyhow::anyhow!("Failed to convert satellite list to TOML: {}", e))?;
+    let toml_value: toml::Value = toml::from_str(&toml_data)
+        .map_err(|e| anyhow::anyhow!("Failed to parse TOML data: {}", e))?;
+
+    let request = FileRequest::Write {
+        path: SATELLITES_TOML.into(),
+        format: FileFormat::Toml,
+        data: FileData::Toml(toml_value),
+        responder: tx,
+    };
+
+    let tx_filerequest = tx_filerequest.write().await;
+    if let Err(e) = tx_filerequest.send(request).await {
+        tracing::error!("Failed to send file write request: {}", e);
+        return Err(anyhow::anyhow!("Failed to send file write request: {}", e));
+    }
+
+    Ok(())
 }
 
 pub async fn write_report_data(
@@ -605,7 +632,16 @@ pub async fn amsat_data_handler(
         }
     };
 
-    let satellite_list: SatelliteList = match load_satellites_list(tx_filerequest.clone()).await {
+    // update satellite names
+    let satellite_names = match amsat_scraper::fetch_satellite_names().await {
+        Ok(names) => names,
+        Err(e) => {
+            response.message = Some(format!("{}", e));
+            return response;
+        }
+    };
+
+    let mut satellite_list: SatelliteList = match load_satellites_list(tx_filerequest.clone()).await {
         Ok(data) => data,
         Err(e) => {
             response.message = Some(format!("{}", e));
@@ -613,8 +649,21 @@ pub async fn amsat_data_handler(
         }
     };
 
+    // iterate through satellite list
+    for sat_name in satellite_names {
+        // add new satellite if not exist
+        if !satellite_list.satellites.iter().any(|s| s.official_name == sat_name) {
+            tracing::info!("New satellite found: {}", sat_name);
+            let new_sat = SatelliteName {
+                official_name: sat_name.clone(),
+                aliases: vec![],
+            };
+            satellite_list.satellites.push(new_sat);
+        }
+    }
+
     let mut response_data = Vec::new();
-    for sat in satellite_list.satellites {
+    for sat in &satellite_list.satellites {
         let sat_name = &sat.official_name;
         let data = match get_amsat_data(sat_name, 1, &app_status).await {
             Ok(data) => data,
@@ -644,6 +693,10 @@ pub async fn amsat_data_handler(
         return response;
     }
     if let Err(e) = write_report_data(tx_filerequest.clone(), &file_data, OFFICIAL_STATUS_CACHE.into()).await {
+        response.message = Some(format!("{}", e));
+        return response;
+    }
+    if let Err(e) = write_satellite_list(tx_filerequest.clone(), &satellite_list).await {
         response.message = Some(format!("{}", e));
         return response;
     }

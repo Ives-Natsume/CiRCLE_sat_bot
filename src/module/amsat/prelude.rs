@@ -123,13 +123,13 @@ impl ReportStatus {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 /// Used for store satellite names and aliases
 pub struct SatelliteList {
     pub satellites: Vec<SatelliteName>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct SatelliteName {
     pub official_name: String,
     pub aliases: Vec<String>,
