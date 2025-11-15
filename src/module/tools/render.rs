@@ -291,6 +291,25 @@ pub async fn render_satstatus_data(
             };
             current_y_offset += BLOCK_TITLE_HEIGHT;
 
+            if block.data.is_empty() {
+                match writeln!(
+                    all_blocks_svg,
+                    r##"<text x="50%" y="{y_pos}" text-anchor="middle" class="table-text" fill="#6e7781">No satellite data available.</text>"##,
+                    y_pos = current_y_offset + 40.0
+                ) {
+                    Ok(_) => {
+                        tracing::debug!("Successfully wrote SVG no data message for {}", &block.name);
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to write SVG: {}", e);
+                        response.message = Some(format!("Failed to write SVG: {}", e));
+                        return response;
+                    }
+                };
+                current_y_offset += 80.0;
+                continue;
+            }
+
             // draw last_update_time
             let element_time = chrono::DateTime::parse_from_rfc3339(&block.last_update_time)
                     .unwrap()

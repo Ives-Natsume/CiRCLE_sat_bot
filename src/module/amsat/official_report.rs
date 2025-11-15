@@ -638,6 +638,15 @@ pub async fn query_satellite_status(
         if let Some(sat_record) = sat_data {
             matched_sat_data.push(sat_record.clone());
         }
+        else {
+            // build a empty record
+            let empty_record = SatelliteFileFormat {
+                name: official_name.clone(),
+                last_update_time: Utc::now().to_rfc3339(),
+                data: Vec::new(),
+            };
+            matched_sat_data.push(empty_record);
+        }
     }
 
     response = render_satstatus_data(&matched_sat_data, payload).await;
