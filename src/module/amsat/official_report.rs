@@ -14,16 +14,6 @@ use std::{collections::{BTreeMap, HashSet}};
 use std::sync::Arc;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct SatStatusCache {
-    name: String,
-    status: ReportStatus,
-    report_num: u64,
-    report_time: String,    // format rfc3339
-}
-
-const SAT_STATUS_CACHE: &str = "runtime_data/sat_status_cache.json";
-
 async fn get_amsat_data(
     sat_name: &str,
     hours: u64,
@@ -121,6 +111,36 @@ pub async fn write_satellite_list(
     }
 }
 
+async fn create_satellite_list_file(
+    app_status: &Arc<AppStatus>,
+) {
+    let tx_filerequest = app_status.file_tx.clone();
+    let satellite_names = match amsat_scraper::fetch_satellite_names().await {
+        Ok(names) => names,
+        Err(e) => {
+            tracing::error!("Failed to fetch satellite names: {}", e);
+            return;
+        }
+    };
+
+    let mut satellite_list = SatelliteList { satellites: Vec::new() };
+    for name in satellite_names {
+        let sat = SatelliteName {
+            official_name: name,
+            aliases: Vec::new(),
+        };
+        satellite_list.satellites.push(sat);
+    }
+
+    match write_satellite_list(tx_filerequest.clone(), &satellite_list).await {
+        Ok(_) => {},
+        Err(e) => {
+            tracing::error!("Failed to write satellite list file: {}", e);
+            return;
+        }
+    }
+}
+
 async fn create_offficial_data_file(
     app_status: &Arc<AppStatus>,
 ) {
@@ -140,6 +160,15 @@ async fn create_offficial_data_file(
             return;
         }
     };
+
+    // check if satellite list exists
+    match check_file_exists(tx_filerequest.clone(), SATELLITES_TOML.into()).await {
+        true => {},
+        false => {
+            tracing::info!("Satellite list file not found, creating...");
+            create_satellite_list_file(&app_status).await;
+        }
+    }
 
     let satellite_list: SatelliteList = match toml::from_str(&toml::to_string(&satellite_list_raw).unwrap()) {
         Ok(data) => data,
@@ -331,6 +360,18 @@ pub async fn amsat_data_handler(
 ) -> ApiResponse<Vec<String>> {
     let mut response = ApiResponse::empty();
     let tx_filerequest = app_status.file_tx.clone();
+
+    match check_file_exists(
+        tx_filerequest.clone(),
+        SATELLITES_TOML.into()
+    ).await {
+        true => {},
+        false => {
+            tracing::info!("Satellite list file not found, creating...");
+            create_satellite_list_file(&app_status).await;
+            return response;
+        }
+    }
 
     match check_file_exists(
         tx_filerequest.clone(),
