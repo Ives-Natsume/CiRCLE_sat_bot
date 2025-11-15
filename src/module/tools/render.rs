@@ -13,9 +13,9 @@ use crate::{
     }, msg::prelude::MessageEvent, response::ApiResponse
 };
 
-const SVG_ROAMING_TEMPLATE_PATH: &str = "data/svg_roaming_template.svg";
-const SVG_SATSTATUS_TEMPLATE_PATH: &str = "data/svg_satstatus_template.svg";
-pub const SATSTATUS_PIC_PATH_PREFIX: &str = "data/pic/satstatus_pics/";
+const SVG_ROAMING_TEMPLATE_PATH: &str = "resources/svg_roaming_template.svg";
+const SVG_SATSTATUS_TEMPLATE_PATH: &str = "resources/svg_satstatus_template.svg";
+pub const SATSTATUS_PIC_PATH_PREFIX: &str = "runtime_data/pic/satstatus_pics/";
 
 pub async fn render_roaming_data(
     roaming_data: &Vec<UserRoamingData>,
@@ -149,10 +149,10 @@ pub async fn render_roaming_data(
         .replace("{{ROWS}}", &rows_svg)
         .replace("{{FOOTER}}", &footer_svg);
 
-    // let output_path = "data/output.svg";
+    // let output_path = "runtime_data/output.svg";
     // tokio::fs::write(output_path, final_svg).await?;
 
-    let png_output_path: &Path = Path::new("data/pic/roaming_list.png");
+    let png_output_path: &Path = Path::new("runtime_data/pic/roaming_list.png");
 
     match render_svg_to_png(&final_svg, png_output_path).await {
         Ok(_) => {
@@ -444,7 +444,7 @@ pub async fn render_satstatus_data(
         .replace("{{CONTENT}}", &all_blocks_svg)
         .replace("{{FOOTER}}", &footer_svg);
 
-    // let output_path = "data/output.svg";
+    // let output_path = "runtime_data/output.svg";
     // tokio::fs::write(output_path, final_svg).await?;
 
     let group_id = payload.group_id.clone();

@@ -7,7 +7,7 @@ use crate::{
 use std::path::Path;
 use url::Url;
 
-const IMAGE_PATH_PREFIX: &str = "data/pic/";
+const IMAGE_PATH_PREFIX: &str = "runtime_data/pic/";
 
 pub async fn get_solar_image(
     app_status: &app_status::AppStatus,

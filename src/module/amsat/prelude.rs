@@ -2,12 +2,12 @@ use serde::{Deserialize, Serialize};
 use strsim::jaro_winkler;
 use chrono::{DateTime, FixedOffset, TimeZone, Utc, NaiveDateTime};
 
-pub const USER_REPORT_DATA: &str = "data/user_report_data.json";
+pub const USER_REPORT_DATA: &str = "runtime_data/user_report_data.json";
 /// stores the official report data
-pub const OFFICIAL_REPORT_DATA: &str = "data/official_report_data.json";
+pub const OFFICIAL_REPORT_DATA: &str = "runtime_data/official_report_data.json";
 /// cache for querying, a copy of the official report data
-pub const OFFICIAL_STATUS_CACHE: &str = "data/official_status_cache.json";
-pub const SATELLITES_TOML: &str = "data/satellites.toml";
+pub const OFFICIAL_STATUS_CACHE: &str = "runtime_data/official_status_cache.json";
+pub const SATELLITES_TOML: &str = "runtime_data/satellites.toml";
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct SatStatus {

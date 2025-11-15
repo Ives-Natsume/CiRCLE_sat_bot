@@ -1,0 +1,37 @@
+<svg width="840" height="{{SVG_HEIGHT}}" xmlns="http://www.w3.org/2000/svg">
+<rect width="100%" height="100%" fill="#ffffff" />
+  <style>
+    /* 定义通用字体和样式 */
+    .table-text {
+      font-family: "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      dominant-baseline: middle; /* 垂直居中对齐 */
+    }
+    .header-text {
+      font-weight: 600;
+      fill: #24292f;
+    }
+    .row-text {
+      fill: #24292f;
+    }
+    /* 呼号和网格使用等宽字体，更易读 */
+    .monospace {
+      font-family: "SF Mono", "Consolas", "Courier New", monospace;
+    }
+    /* 新增：卫星名称标题样式 */
+    .satellite-title {
+      font-family: "SF Mono", "Consolas", "Courier New", monospace;
+      font-size: 26px;
+      font-weight: 600;
+      fill: #0969da; /* 蓝色以突出显示 */
+    }
+  </style>
+
+  <!-- 所有动态生成的内容都将插入到这里 -->
+  <g id="main-container">
+    {{CONTENT}}
+  </g>
+
+  {{FOOTER}}
+
+</svg>

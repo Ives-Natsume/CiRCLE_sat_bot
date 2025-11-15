@@ -11,7 +11,7 @@ use regex::Regex;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
 
-const USER_ROAMING_DATA: &str = "data/user_roaming_data.json";
+const USER_ROAMING_DATA: &str = "runtime_data/user_roaming_data.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoamingData {
@@ -36,7 +36,7 @@ struct RoamingSubmitHistory {
 }
 
 const MAX_SUBMIT_LIMIT: usize = 3;
-const USER_ROAMING_SUBMIT_HISTORY: &str = "data/user_roaming_submit_history.json";
+const USER_ROAMING_SUBMIT_HISTORY: &str = "runtime_data/user_roaming_submit_history.json";
 
 async fn read_user_roaming_submit_history(
     tx_filerequest: &Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
@@ -471,7 +471,7 @@ pub async fn list_roaming(
     // Args: list [Callsign]/[Grid]
     let keywords_filter = args.split_whitespace().nth(1).map(|s| s.to_uppercase());
     if keywords_filter.is_none() {
-        response.data = Some(vec!["file:///server_data/pic/roaming_list.png".to_string()]);
+        response.data = Some(vec!["file:///server_runtime_data/pic/roaming_list.png".to_string()]);
         response.success = true;
         response.message = Some("image".to_string());
         return response;

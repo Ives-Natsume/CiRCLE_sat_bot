@@ -1,5 +1,5 @@
 use crate::{
-    app_status::AppStatus, fs::handler::{FileData, FileFormat, FileRequest}, i18n, module::{amsat::{official_report, prelude::*}, prelude::*}, msg::prelude::MessageEvent, response::ApiResponse
+    app_status::AppStatus, fs::handler::*, i18n, module::{amsat::{official_report, prelude::*}, prelude::*}, msg::prelude::MessageEvent, response::ApiResponse
 };
 use tokio::{
     sync::RwLock,
@@ -8,9 +8,9 @@ use std::sync::Arc;
 use std::collections::HashMap;
 use chrono::{DateTime, Utc, Datelike, Timelike};
 use reqwest;
-use crate::module::amsat::official_report::{load_satellites_list, write_report_data};
+use crate::module::amsat::official_report::load_satellites_list;
 
-const USER_REPORT_DATA: &str = "data/user_report_data.json";
+const USER_REPORT_DATA: &str = "runtime_data/user_report_data.json";
 
 // TODO：unfinished
 pub async fn data_parser(
@@ -222,15 +222,14 @@ pub async fn create_report_template(
         });
     }
 
-    if let Err(e) = write_report_data(
+    match write_file(
         tx_filerequest.clone(),
-        &user_report_data,
         USER_REPORT_DATA.into(),
+        &FileData::Json(serde_json::to_value(&user_report_data)?),
     ).await {
-        return Err(anyhow::anyhow!("{}", e));
+        Ok(_) => Ok(()),
+        Err(e) => Err(anyhow::anyhow!("Failed to write user report data: {}", e)),
     }
-
-    Ok(())
 }
 
 pub async fn add_user_report(
@@ -339,10 +338,14 @@ pub async fn add_user_report(
         response_data.push(i18n::text("cmd_report_user_conflict_report"));
     }
 
-    if let Err(e) = write_report_data(
+    let user_report_data = serde_json::to_value(&user_report_data)
+        .map_err(|e| anyhow::anyhow!("Failed to serialize user report data: {}", e))
+        .unwrap();
+
+    if let Err(e) = write_file(
         tx_filerequest.clone(),
-        &user_report_data,
         USER_REPORT_DATA.into(),
+        &FileData::Json(user_report_data),
     ).await {
         return ApiResponse::<Vec<String>>::error(format!("{}", e));
     }
@@ -435,10 +438,13 @@ pub async fn remove_user_report(
     }
 
     let tx_filerequest = app_status.file_tx.clone();
-    if let Err(e) = write_report_data(
+    let user_report_data = serde_json::to_value(&new_data)
+        .map_err(|e| anyhow::anyhow!("Failed to serialize user report data: {}", e))
+        .unwrap();
+    if let Err(e) = write_file(
         tx_filerequest.clone(),
-        &new_data,
         USER_REPORT_DATA.into(),
+        &FileData::Json(user_report_data),
     ).await {
         return ApiResponse::<Vec<String>>::error(format!("{}", e));
     }

@@ -1,10 +1,8 @@
 use crate::{
     app_status::AppStatus, 
-    fs::handler::{FileData, FileFormat, FileRequest},
-    module::amsat::{prelude::*, amsat_scraper},
-    module::tools::render::render_satstatus_data,
-    msg::group_msg::send_group_message_to_multiple_groups,
-    msg::prelude::MessageEvent,
+    fs::{self, handler::*},
+    module::{amsat::{amsat_scraper, prelude::*}, tools::render::render_satstatus_data},
+    msg::{group_msg::send_group_message_to_multiple_groups, prelude::MessageEvent},
     response::ApiResponse,
 };
 use serde::{Deserialize, Serialize};
@@ -12,7 +10,7 @@ use tokio::{
     sync::RwLock,
 };
 use chrono::{DateTime, Duration, Timelike, Utc};
-use std::collections::{BTreeMap, HashSet};
+use std::{collections::{BTreeMap, HashSet}};
 use std::sync::Arc;
 use std::collections::HashMap;
 
@@ -24,7 +22,7 @@ pub struct SatStatusCache {
     report_time: String,    // format rfc3339
 }
 
-const SAT_STATUS_CACHE: &str = "data/sat_status_cache.json";
+const SAT_STATUS_CACHE: &str = "runtime_data/sat_status_cache.json";
 
 async fn get_amsat_data(
     sat_name: &str,
@@ -77,183 +75,77 @@ async fn get_amsat_data(
     Ok(vec![SatStatus::default()])
 }
 
-async fn load_official_report_data(
-    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
-    path: String
-) -> anyhow::Result<Vec<SatelliteFileFormat>> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    let request = FileRequest::Read {
-        path: path.into(),
-        format: FileFormat::Json,
-        responder: tx,
+pub async fn load_satellites_list(
+    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>
+) -> anyhow::Result<SatelliteList> {
+    let file_data_raw = match fs::handler::load_file(
+        tx_filerequest.clone(),
+        SATELLITES_TOML.into(),
+        FileFormat::Toml,
+    ).await {
+        Ok(FileData::Toml(data)) => data,
+        Ok(_) => {
+            return Err(anyhow::anyhow!("Unexpected file format received when loading satellite list"));
+        }
+        Err(e) => {
+            return Err(anyhow::anyhow!("Failed to load satellite list: {}", e));
+        }
     };
 
-    let tx_filerequest = tx_filerequest.write().await;
-    if let Err(e) = tx_filerequest.send(request).await {
-        return Err(anyhow::anyhow!("Failed to send file read request: {}", e));
-    }
-
-    let file_result = match rx.await {
-        Ok(result) => result,
-        Err(e) => return Err(anyhow::anyhow!("Failed to receive file data: {}", e)),
-    };
-
-    let file_data_raw = match file_result {
-        Ok(FileData::Json(data)) => data,
-        Ok(_) => return Err(anyhow::anyhow!("Unexpected file format received")),
-        Err(e) => return Err(anyhow::anyhow!("Failed to receive file data: {}", e)),
-    };
-
-    let file_data: Vec<SatelliteFileFormat> = match serde_json::from_value(file_data_raw) {
+    let file_data: SatelliteList = match toml::from_str(&toml::to_string(&file_data_raw).unwrap()) {
         Ok(data) => data,
-        Err(e) => return Err(anyhow::anyhow!("Failed to parse JSON data: {}", e)),
+        Err(e) => {
+            return Err(anyhow::anyhow!("Failed to parse satellite list: {}", e));
+        }
     };
 
     Ok(file_data)
-}
-
-async fn check_official_data_file_exist(
-    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>
-) -> bool {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    let request = FileRequest::Exists {
-        path: OFFICIAL_REPORT_DATA.into(),
-        responder: tx
-    };
-
-    let tx_filerequest = tx_filerequest.write().await;
-    if let Err(e) = tx_filerequest.send(request).await {
-        tracing::error!("{}", e);
-        return false;
-    }
-
-    let result = match rx.await {
-        Ok(sth) => sth,
-        Err(e) => {
-            tracing::error!("{}", e);
-            return false;
-        }
-    };
-
-    match result {
-        Ok(value) => value,
-        Err(e) => {
-            tracing::error!("{}", e);
-            return false;
-        }
-    }
 }
 
 pub async fn write_satellite_list(
     tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
     satellite_list: &SatelliteList,
 ) -> anyhow::Result<()> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-
     let toml_data = toml::to_string(&satellite_list)
         .map_err(|e| anyhow::anyhow!("Failed to convert satellite list to TOML: {}", e))?;
     let toml_value: toml::Value = toml::from_str(&toml_data)
         .map_err(|e| anyhow::anyhow!("Failed to parse TOML data: {}", e))?;
 
-    let request = FileRequest::Write {
-        path: SATELLITES_TOML.into(),
-        format: FileFormat::Toml,
-        data: FileData::Toml(toml_value),
-        responder: tx,
-    };
-
-    let tx_filerequest = tx_filerequest.write().await;
-    if let Err(e) = tx_filerequest.send(request).await {
-        tracing::error!("Failed to send file write request: {}", e);
-        return Err(anyhow::anyhow!("Failed to send file write request: {}", e));
+    match fs::handler::write_file(
+        tx_filerequest,
+        SATELLITES_TOML.into(),
+        &FileData::Toml(toml_value)
+    ).await {
+        Ok(_) => Ok(()),
+        Err(e) => Err(anyhow::anyhow!("Failed to write satellite list: {}", e)),
     }
-
-    Ok(())
-}
-
-pub async fn write_report_data(
-    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
-    file_data: &Vec<SatelliteFileFormat>,
-    path: String
-) -> anyhow::Result<()> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-
-    let data = serde_json::to_value(&file_data)
-        .map_err(|e| anyhow::anyhow!("Failed to convert data to JSON: {}", e))?;
-    let request = FileRequest::Write {
-        path: path.into(),
-        format: FileFormat::Json,
-        data: FileData::Json(data),
-        responder: tx,
-    };
-
-    let tx_filerequest = tx_filerequest.write().await;
-    if let Err(e) = tx_filerequest.send(request).await {
-        tracing::error!("Failed to send file write request: {}", e);
-        return Err(anyhow::anyhow!("Failed to send file write request: {}", e));
-    }
-
-    match rx.await {
-        Ok(result) => match result {
-            Ok(_) => Ok(()),
-            Err(e) => Err(anyhow::anyhow!("Failed to write file: {}", e)),
-        },
-        Err(e) => Err(anyhow::anyhow!("Failed to receive file write response: {}", e)),
-    }
-}
-
-pub async fn load_satellites_list(
-    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>
-) -> anyhow::Result<SatelliteList> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    let request = FileRequest::Read {
-        path: SATELLITES_TOML.into(),
-        format: FileFormat::Toml,
-        responder: tx,
-    };
-
-    let tx_filerequest = tx_filerequest.write().await;
-    if let Err(e) = tx_filerequest.send(request).await {
-        tracing::error!("Failed to send file read request: {}", e);
-        return Err(anyhow::anyhow!("Failed to send file read request: {}", e));
-    }
-
-    let file_result = match rx.await {
-        Ok(result) => result,
-        Err(e) => {
-            tracing::error!("Failed to receive file data: {}", e);
-            return Err(anyhow::anyhow!("Failed to receive file data: {}", e));
-        },
-    };
-
-    let file_data_raw = match file_result {
-        Ok(FileData::Toml(data)) => data,
-        Ok(_) => return Err(anyhow::anyhow!("Unexpected file format received")),
-        Err(e) => return Err(anyhow::anyhow!("Failed to receive file data: {}", e)),
-    };
-
-    let file_data_raw_str = match toml::to_string(&file_data_raw) {
-        Ok(data) => data,
-        Err(e) => return Err(anyhow::anyhow!("Failed to convert TOML data to string: {}", e)),
-    };
-
-    let file_data: SatelliteList = match toml::from_str(&file_data_raw_str) {
-        Ok(data) => data,
-        Err(e) => return Err(anyhow::anyhow!("Failed to parse TOML data: {}", e)),
-    };
-
-    Ok(file_data)
 }
 
 async fn create_offficial_data_file(
     app_status: &Arc<AppStatus>,
 ) {
     let tx_filerequest = app_status.file_tx.clone();
-    let satellite_list = match load_satellites_list(tx_filerequest.clone()).await {
-        Ok(data) => data,
+    let satellite_list_raw = match load_file(
+        tx_filerequest.clone(),
+        SATELLITES_TOML.into(),
+        FileFormat::Toml,
+    ).await {
+        Ok(FileData::Toml(data)) => data,
+        Ok(_) => {
+            tracing::error!("Unexpected file format received when loading satellite list");
+            return;
+        }
         Err(e) => {
             tracing::error!("Failed to load satellite list: {}", e);
-            return ;
+            return;
+        }
+    };
+
+    let satellite_list: SatelliteList = match toml::from_str(&toml::to_string(&satellite_list_raw).unwrap()) {
+        Ok(data) => data,
+        Err(e) => {
+            tracing::error!("Failed to parse satellite list: {}", e);
+            return;
         }
     };
 
@@ -275,8 +167,22 @@ async fn create_offficial_data_file(
         }
     }
 
-    let _ = write_report_data(tx_filerequest.clone(), &file_data, OFFICIAL_REPORT_DATA.into()).await;
-    let _ = write_report_data(tx_filerequest.clone(), &file_data, OFFICIAL_STATUS_CACHE.into()).await;
+    let file_data = FileData::Json(serde_json::to_value(&file_data).unwrap());
+
+    match write_file(tx_filerequest.clone(), OFFICIAL_REPORT_DATA.into(), &file_data).await {
+        Ok(_) => {},
+        Err(e) => {
+            tracing::error!("Failed to write official report data file: {}", e);
+            return;
+        }
+    }
+    match write_file(tx_filerequest.clone(), OFFICIAL_STATUS_CACHE.into(), &file_data).await {
+        Ok(_) => {},
+        Err(e) => {
+            tracing::error!("Failed to write official status cache file: {}", e);
+            return;
+        }
+    }
 }
 
 pub fn pack_satellite_data(reports: Vec<SatStatus>) -> Option<SatelliteFileFormat> {
@@ -419,195 +325,6 @@ pub fn update_satellite_data(
     }
 }
 
-async fn load_sat_status_cache(
-    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
-    path: String
-) -> anyhow::Result<Vec<SatStatusCache>> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    let request = FileRequest::Read {
-        path: path.into(),
-        format: FileFormat::Json,
-        responder: tx,
-    };
-
-    let tx_filerequest = tx_filerequest.write().await;
-    if let Err(e) = tx_filerequest.send(request).await {
-        tracing::error!("Failed to send file read request: {}", e);
-        return Err(anyhow::anyhow!("Failed to send file read request: {}", e));
-    }
-
-    let read_result = match rx.await {
-        Ok(data) => data,
-        Err(e) => {
-            return Err(anyhow::anyhow!("Failed to receive file read response: {}", e));
-        }
-    };
-
-    let status_cache = match read_result {
-        Ok(FileData::Json(data)) => match serde_json::from_value::<Vec<SatStatusCache>>(data) {
-            Ok(data) => data,
-            Err(e) => {
-                return Err(anyhow::anyhow!("Failed to parse satellite status cache: {}", e));
-            }
-        },
-        _ => {
-            return Err(anyhow::anyhow!("Unexpected file format received"));
-        }
-    };
-
-    Ok(status_cache)
-}
-
-async fn write_sat_status_cache(
-    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
-    status_cache: &Vec<SatStatusCache>,
-    path: String
-) -> anyhow::Result<()> {
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    let data = serde_json::to_value(status_cache).map_err(|e| {
-        tracing::error!("Failed to serialize satellite status cache: {}", e);
-        anyhow::anyhow!("Failed to serialize satellite status cache: {}", e)
-    })?;
-    let request = FileRequest::Write {
-        path: path.into(),
-        format: FileFormat::Json,
-        data: FileData::Json(data),
-        responder: tx,
-    };
-
-    let tx_filerequest = tx_filerequest.write().await;
-    if let Err(e) = tx_filerequest.send(request).await {
-        tracing::error!("Failed to send file write request: {}", e);
-        return Err(anyhow::anyhow!("Failed to send file write request: {}", e));
-    }
-
-    match rx.await {
-        Ok(result) => match result {
-            Ok(_) => Ok(()),
-            Err(e) => Err(anyhow::anyhow!("Failed to write file: {}", e)),
-        },
-        Err(e) => Err(anyhow::anyhow!("Failed to receive file write response: {}", e)),
-    }
-}
-
-/// sat_status_cache.json, stores shortcuts about satellite status
-pub async fn sat_status_cache_handler(
-    app_status: &Arc<AppStatus>,
-) -> ApiResponse<Vec<String>> {
-    let mut response = ApiResponse::empty();
-    let mut response_data = Vec::new();
-    let tx_filerequest = app_status.file_tx.clone();
-
-    // load satellite status cache
-    let status_cache = match load_sat_status_cache(tx_filerequest.clone(), SAT_STATUS_CACHE.into()).await {
-        Ok(data) => data,
-        Err(e) => {
-            response.message = Some(format!("{}", e));
-            return response;
-        }
-    };
-
-    let mut new_cache = Vec::new();
-
-    // load official report
-    let official_report = match load_official_report_data(tx_filerequest.clone(), OFFICIAL_REPORT_DATA.into()).await {
-        Ok(data) => data,
-        Err(e) => {
-            response.message = Some(format!("{}", e));
-            return response;
-        }
-    };
-
-    // compare satellite status cache with official report
-    for report_format in official_report {
-        let sat_name = &report_format.name;
-        if report_format.data.is_empty() {
-            let time: String = Utc::now().to_rfc3339();
-            let cache_entry = SatStatusCache {
-                name: sat_name.clone(),
-                status: ReportStatus::Grey,
-                report_time: time,
-                report_num: 0,
-            };
-            new_cache.push(cache_entry);
-        }
-        for data in report_format.data {
-            let time_block = &data.time;
-            let reports = &data.report;
-            if reports.is_empty() {
-                continue;
-            }
-
-            // find the corresponding status cache entry
-            if let Some(cache_entry) = status_cache.iter().find(|entry: &&SatStatusCache| &entry.name == sat_name) {
-                // update latest data only
-                let report_time = DateTime::parse_from_rfc3339(&time_block.clone())
-                    .expect("Invalid time format in official report")
-                    .with_timezone(&Utc);
-                let cache_time = DateTime::parse_from_rfc3339(&cache_entry.report_time)
-                    .expect("Invalid time format in status cache")
-                    .with_timezone(&Utc);
-                if report_time > cache_time {
-                    // we need to update the status cache
-                    let mut status_count: HashMap<ReportStatus, usize> = HashMap::new();
-                    for report in reports {
-                        let status = ReportStatus::from_string(&report.report);
-                        *status_count.entry(status).or_insert(0) += 1;
-                    }
-                    let new_status = determine_report_status(&status_count);
-                    if new_status != cache_entry.status {
-                        response_data.push(format!(
-                            "{}: {}",
-                            sat_name, new_status.to_string()
-                        ));
-                    }
-                    // update the cache entry
-                    let mut cache_entry = cache_entry.clone();
-                    cache_entry.status = new_status;
-                    cache_entry.report_time = time_block.clone();
-                    new_cache.push(cache_entry);
-                }
-                else {
-                    // keep the cache entry
-                    new_cache.push(cache_entry.clone());
-                }
-            }
-            else {
-                let new_status = {
-                    let mut status_count: HashMap<ReportStatus, usize> = HashMap::new();
-                    for report in reports {
-                        let status = ReportStatus::from_string(&report.report);
-                        *status_count.entry(status).or_insert(0) += 1;
-                    }
-                    determine_report_status(&status_count)
-                };
-                new_cache.push(SatStatusCache {
-                    name: sat_name.clone(),
-                    status: new_status,
-                    report_time: time_block.clone(),
-                    report_num: 1,
-                });
-            }
-
-            break; // only process the latest time block
-        }
-    }
-
-    // write the updated cache back to the file
-    tracing::info!("Writing updated satellite status cache...");
-    if let Err(e) = write_sat_status_cache(tx_filerequest.clone(), &new_cache, SAT_STATUS_CACHE.into()).await {
-        response.message = Some(format!("{}", e));
-        return response;
-    }
-
-    if !response_data.is_empty() {
-        response_data.insert(0, "卫星状态更新了喵~".to_string());
-    }
-    response.success = true;
-    response.data = Some(response_data);
-    response
-}
-
 /// Scheduled task
 pub async fn amsat_data_handler(
     app_status: &Arc<AppStatus>,
@@ -615,7 +332,10 @@ pub async fn amsat_data_handler(
     let mut response = ApiResponse::empty();
     let tx_filerequest = app_status.file_tx.clone();
 
-    match check_official_data_file_exist(tx_filerequest.clone()).await {
+    match check_file_exists(
+        tx_filerequest.clone(),
+        OFFICIAL_REPORT_DATA.into()
+    ).await {
         true => {},
         false => {
             tracing::info!("Creating AMSAT data file...");
@@ -624,7 +344,22 @@ pub async fn amsat_data_handler(
         }
     }
 
-    let mut file_data: Vec<SatelliteFileFormat> = match load_official_report_data(tx_filerequest.clone(), OFFICIAL_REPORT_DATA.into()).await {
+    let official_report_raw = match fs::handler::load_file(
+        tx_filerequest.clone(),
+        OFFICIAL_REPORT_DATA.into(),
+        FileFormat::Json).await {
+        Ok(FileData::Json(data)) => data,
+        Ok(_) => {
+            response.message = Some("Unexpected file format received".to_string());
+            return response;
+        }
+        Err(e) => {
+            response.message = Some(format!("{}", e));
+            return response;
+        }
+    };
+
+    let mut official_report_data: Vec<SatelliteFileFormat> = match serde_json::from_value(official_report_raw) {
         Ok(data) => data,
         Err(e) => {
             response.message = Some(format!("{}", e));
@@ -676,29 +411,38 @@ pub async fn amsat_data_handler(
             continue;
         }
 
-        if let Some(exist_data) = file_data.iter_mut().find(|f| f.name == *sat_name) {
+        if let Some(exist_data) = official_report_data.iter_mut().find(|f| f.name == *sat_name) {
             let updated_data = update_satellite_data(exist_data.clone(), data, 48);
             *exist_data = updated_data;
         } else {
             let new_data = pack_satellite_data(data);
             if let Some(new_data) = new_data {
-                file_data.push(new_data);
+                official_report_data.push(new_data);
             }
         }
     }
 
-    // write the updated data back to the file
-    if let Err(e) = write_report_data(tx_filerequest.clone(), &file_data, OFFICIAL_REPORT_DATA.into()).await {
-        response.message = Some(format!("{}", e));
-        return response;
+    let file_data = FileData::Json(serde_json::to_value(&official_report_data).unwrap());
+    match write_file(tx_filerequest.clone(), OFFICIAL_REPORT_DATA.into(), &file_data).await {
+        Ok(_) => {},
+        Err(e) => {
+            response.message = Some(format!("{}", e));
+            return response;
+        }
     }
-    if let Err(e) = write_report_data(tx_filerequest.clone(), &file_data, OFFICIAL_STATUS_CACHE.into()).await {
-        response.message = Some(format!("{}", e));
-        return response;
+    match write_file(tx_filerequest.clone(), OFFICIAL_STATUS_CACHE.into(), &file_data).await {
+        Ok(_) => {},
+        Err(e) => {
+            response.message = Some(format!("{}", e));
+            return response;
+        }
     }
-    if let Err(e) = write_satellite_list(tx_filerequest.clone(), &satellite_list).await {
-        response.message = Some(format!("{}", e));
-        return response;
+    match write_satellite_list(tx_filerequest.clone(), &satellite_list).await {
+        Ok(_) => {},
+        Err(e) => {
+            response.message = Some(format!("{}", e));
+            return response;
+        }
     }
 
     response.success = true;
@@ -800,15 +544,23 @@ pub async fn query_satellite_status(
         }
     };
 
-    // let latest_data = match load_sat_status_cache(tx_filerequest.clone(), SAT_STATUS_CACHE.into()).await {
-    //     Ok(data) => data,
-    //     Err(e) => {
-    //         response.message = Some(format!("{}", e));
-    //         return response;
-    //     }
-    // };
 
-    let latest_data = match load_official_report_data(tx_filerequest.clone(), OFFICIAL_STATUS_CACHE.into()).await {
+    let official_report_raw = match fs::handler::load_file(
+        tx_filerequest.clone(),
+        OFFICIAL_REPORT_DATA.into(),
+        FileFormat::Json).await {
+        Ok(FileData::Json(data)) => data,
+        Ok(_) => {
+            response.message = Some("Unexpected file format received".to_string());
+            return response;
+        }
+        Err(e) => {
+            response.message = Some(format!("{}", e));
+            return response;
+        }
+    };
+
+    let latest_data: Vec<SatelliteFileFormat> = match serde_json::from_value(official_report_raw) {
         Ok(data) => data,
         Err(e) => {
             response.message = Some(format!("{}", e));
@@ -839,96 +591,13 @@ pub async fn query_satellite_status(
         }
     }
 
-    // for official_name in match_sat {
-    //     let sat_data_cache = latest_data.iter().find(|f| f.name == official_name);
-    //     response_data.push(format!(
-    //         "{}吗，交给Rinko喵~",
-    //         official_name
-    //     ));
-    //     if let Some(sat_record) = sat_data_cache {
-    //         // get latest report
-    //         if sat_record.status == ReportStatus::Grey {
-    //             response_data.push(format!("过去两天没有{}的报告呢，去上传报告吧", official_name));
-    //             continue;
-    //         }
-    //         let report_time = DateTime::parse_from_rfc3339(&sat_record.report_time)
-    //             .expect("Invalid time format in data element")
-    //             .with_timezone(&Utc);
-    //         let now = Utc::now();
-    //         let time_diff = (now - report_time).num_hours();
-
-    //         response_data.push(format!(
-    //             "大约{}小时前有{}个报告，{}的说",
-    //             time_diff,
-    //             sat_record.report_num,
-    //             sat_record.status.to_chinese_string()
-    //         ));
-    //     } else {
-    //         response_data.push(format!("过去两天没有{}的报告呢，去上传报告吧", official_name));
-    //     }
-    //     response_data.push("\n".to_string());
-    // }
-
     let mut matched_sat_data: Vec<SatelliteFileFormat> = Vec::new();
     for official_name in match_sat {
         let sat_data = latest_data.iter().find(|f| f.name == official_name);
-        // response_data.push(format!(
-        //     "{}吗，交给Rinko喵~",
-        //     official_name
-        // ));
         if let Some(sat_record) = sat_data {
-            // get latest report
-            // for data_element in &sat_record.data {
-            //     if data_element.report.is_empty() {
-            //         continue;
-            //     }
-            //     let mut report_status_count: HashMap<ReportStatus, usize> = HashMap::new();
-            //     let mut report_total_count = 0;
-            //     for report in &data_element.report {
-            //         let status = ReportStatus::from_string(&report.report.clone());
-            //         *report_status_count.entry(status).or_default() += 1;
-            //         report_total_count += 1;
-            //     }
-            //     let report_status = determine_report_status(&report_status_count);
-            //     let report_timeblock = DateTime::parse_from_rfc3339(&data_element.time)
-            //         .expect("Invalid time format in data element")
-            //         .with_timezone(&Utc);
-            //     let now = Utc::now();
-            //     let time_diff = (now - report_timeblock).num_hours();
-
-            //     response_data.push(format!(
-            //         "大约{}小时前有{}个报告，{}的说",
-            //         time_diff,
-            //         report_total_count,
-            //         report_status.to_chinese_string()
-            //     ));
-            //     response_data.push(format!(
-            //         "数据更新时间: {}",
-            //         sat_record.last_update_time
-            //     ));
-            //     break;
-            // }
             matched_sat_data.push(sat_record.clone());
         }
-        // response_data.push("\n".to_string());
     }
-
-    // if response_data.iter().all(|s| s.trim().is_empty()) {
-    //     response.message = Some("^ ^)/".to_string());
-    //     return response;
-    // }
-
-    // while let Some(last) = response_data.last() {
-    //     if last.trim().is_empty() {
-    //         response_data.pop();
-    //     } else {
-    //         break;
-    //     }
-    // }
-
-    // response.success = true;
-    // response.data = Some(response_data);
-    // response
 
     response = render_satstatus_data(&matched_sat_data, payload).await;
     response

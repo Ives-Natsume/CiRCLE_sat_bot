@@ -65,14 +65,14 @@ async fn router(
             response = query_satellite_status(&args, &app_status, &payload).await;
         }
         "s" | "sun" => {
-            // let uri = match solar_image::get_image::file_uri("data/pic/solar_image_latest.png") {
+            // let uri = match solar_image::get_image::file_uri("runtime_data/pic/solar_image_latest.png") {
             //     Ok(uri) => uri,
             //     Err(e) => {
             //         tracing::error!("Failed to encode solar image path: {}", e);
             //         return response;
             //     }
             // };
-            let uri: String = "file:///server_data/pic/solar_image_latest.png".to_string();
+            let uri: String = "file:///server_runtime_data/pic/solar_image_latest.png".to_string();
             response = ApiResponse {
                 success: true,
                 data: Some(vec![uri]),
@@ -104,7 +104,7 @@ async fn router(
             tracing::warn!("Received roaming command with args: {}", args);
             if args.is_empty() {
                 response.message = Some("image".to_string());
-                response.data = Some(vec!["file:///server_data/pic/roaming_list.png".to_string()]);
+                response.data = Some(vec!["file:///server_runtime_data/pic/roaming_list.png".to_string()]);
             } else if args.starts_with("list") {
                 response = list_roaming(&app_status, &args).await;
             } else if args.starts_with("remove") {
