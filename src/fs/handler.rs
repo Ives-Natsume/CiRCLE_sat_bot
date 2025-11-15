@@ -199,7 +199,7 @@ pub async fn read_config(
     Ok(config)
 }
 
-pub async fn load_file(
+pub async fn read_file(
     tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
     path: String,
     file_format: FileFormat,

@@ -1,7 +1,8 @@
 [package]
 name = "CiRCLE_sat_bot_server"
-version = "0.1.1"
+version = "0.1.2-beta"
 edition = "2024"
+authors = ["BG5FNA <metasequoiaNI@outlook.com>"]
 
 [dependencies]
 anyhow = "1.0.98"

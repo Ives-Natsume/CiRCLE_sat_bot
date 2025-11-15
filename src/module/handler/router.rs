@@ -62,7 +62,7 @@ async fn router(
 
     match command.as_str() {
         "q" | "query" => {
-            response = query_satellite_status(&args, &app_status, &payload).await;
+            response = query_satellite_status(&args, &app_status).await;
         }
         "s" | "sun" => {
             // let uri = match solar_image::get_image::file_uri("runtime_data/pic/solar_image_latest.png") {

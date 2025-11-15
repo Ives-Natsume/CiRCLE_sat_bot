@@ -1,7 +1,7 @@
 use crate::{
     app_status::AppStatus, 
     fs::{self, handler::*},
-    module::{amsat::{amsat_scraper, prelude::*}, tools::render::render_satstatus_data},
+    module::{amsat::{amsat_scraper, prelude::*}, tools::render::{render_satstatus_data, render_satstatus_query_handler}},
     msg::{group_msg::send_group_message_to_multiple_groups, prelude::MessageEvent},
     response::ApiResponse,
 };
@@ -68,7 +68,7 @@ async fn get_amsat_data(
 pub async fn load_satellites_list(
     tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>
 ) -> anyhow::Result<SatelliteList> {
-    let file_data_raw = match fs::handler::load_file(
+    let file_data_raw = match fs::handler::read_file(
         tx_filerequest.clone(),
         SATELLITES_TOML.into(),
         FileFormat::Toml,
@@ -145,7 +145,7 @@ async fn create_offficial_data_file(
     app_status: &Arc<AppStatus>,
 ) {
     let tx_filerequest = app_status.file_tx.clone();
-    let satellite_list_raw = match load_file(
+    let satellite_list_raw = match read_file(
         tx_filerequest.clone(),
         SATELLITES_TOML.into(),
         FileFormat::Toml,
@@ -385,7 +385,7 @@ pub async fn amsat_data_handler(
         }
     }
 
-    let official_report_raw = match fs::handler::load_file(
+    let official_report_raw = match fs::handler::read_file(
         tx_filerequest.clone(),
         OFFICIAL_REPORT_DATA.into(),
         FileFormat::Json).await {
@@ -565,7 +565,6 @@ pub fn determine_report_status(
 pub async fn query_satellite_status(
     input: &str,
     app_status: &Arc<AppStatus>,
-    payload: &MessageEvent
 ) -> ApiResponse<Vec<String>> {
     tracing::debug!("Querying satellite status for input: {}", input);
     let mut response = ApiResponse::empty();
@@ -586,7 +585,7 @@ pub async fn query_satellite_status(
     };
 
 
-    let official_report_raw = match fs::handler::load_file(
+    let official_report_raw = match fs::handler::read_file(
         tx_filerequest.clone(),
         OFFICIAL_REPORT_DATA.into(),
         FileFormat::Json).await {
@@ -649,6 +648,6 @@ pub async fn query_satellite_status(
         }
     }
 
-    response = render_satstatus_data(&matched_sat_data, payload).await;
+    response = render_satstatus_query_handler(&matched_sat_data).await;
     response
 }

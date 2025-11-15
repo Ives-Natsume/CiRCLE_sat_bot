@@ -2,11 +2,11 @@ use std::sync::Arc;
 use std::time::Duration;
 use chrono::{self, DateTime, Timelike, Utc};
 use crate::{
-    app_status::AppStatus, fs, module::{
+    app_status::AppStatus, fs::{self, handler::FileData}, module::{
         amsat::{self, prelude::*},
         solar_image,
-        tools::render::SATSTATUS_PIC_PATH_PREFIX,
-    }, msg::group_msg::send_group_message_to_multiple_groups, response
+        tools::render::{SATSTATUS_PIC_PATH_PREFIX, render_satstatus_data, floor_to_previous_quarter},
+    }, msg::group_msg::send_group_message_to_multiple_groups, response,
 };
 
 pub async fn scheduled_task_handler(
@@ -84,6 +84,10 @@ pub async fn scheduled_task_handler(
                         continue;
                     }
                 };
+
+                // render the satellite status image after successful data update
+                render_satstatus_image_task(Arc::clone(&app_status_cp1)).await;
+
                 let success = response.success;
                 send_group_message_to_multiple_groups(response, &app_status_cp1).await;
                 if success {
@@ -256,6 +260,8 @@ async fn start_cleanup_task() {
     }
 }
 
+/// Cleanup the old satellite status image files
+/// Matches the RFC3339 timestamp pattern
 async fn cleanup_old_files() -> anyhow::Result<()> {
     let now = Utc::now();
     let dir = std::path::Path::new(SATSTATUS_PIC_PATH_PREFIX);
@@ -264,7 +270,7 @@ async fn cleanup_old_files() -> anyhow::Result<()> {
         std::fs::create_dir_all(dir)?;
     }
 
-    let re = regex::Regex::new(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))").unwrap();
+    let re = regex::Regex::new(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))").unwrap();
 
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
@@ -278,7 +284,7 @@ async fn cleanup_old_files() -> anyhow::Result<()> {
                         let file_time_utc = file_time.with_timezone(&Utc);
                         let age = now.signed_duration_since(file_time_utc).num_seconds();
 
-                        if age > 60 * 10 {
+                        if age > 60 * 30 {
                             tracing::info!("Deleting expired file: {:?}", path);
                             let _ = tokio::fs::remove_file(&path).await;
                         }
@@ -289,4 +295,50 @@ async fn cleanup_old_files() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+async fn render_satstatus_image_task(app_status_cp: Arc<AppStatus>) {
+    let tx_filerequest = app_status_cp.file_tx.clone();
+    let official_report_raw = match fs::handler::read_file(
+        tx_filerequest,
+        amsat::prelude::OFFICIAL_REPORT_DATA.to_string(),
+        fs::handler::FileFormat::Json
+    ).await {
+        Ok(FileData::Json(data)) => data,
+        Ok(_) => {
+            tracing::error!("Received unexpected file format while reading official report data file");
+            return;
+        }
+        Err(e) => {
+            tracing::error!("Failed to read official report data file: {}", e);
+            return;
+        }
+    };
+
+    let official_report: Vec<amsat::prelude::SatelliteFileFormat> = match serde_json::from_value(official_report_raw) {
+        Ok(data) => data,
+        Err(e) => {
+            tracing::error!("Failed to parse official report data file: {}", e);
+            return;
+        }
+    };
+
+    let now_utc = Utc::now();
+    let floored_time = floor_to_previous_quarter(now_utc);
+    let timestamp_str = floored_time.to_rfc3339();
+
+    // render each satellite status image
+    for satellite in &official_report {
+        match render_satstatus_data(
+            &vec![satellite.clone()],
+            format!("{}{}-{}.png", SATSTATUS_PIC_PATH_PREFIX, timestamp_str, satellite.name)
+        ).await {
+            Ok(_) => {
+                tracing::info!("Rendered satellite status image for {}", satellite.name);
+            }
+            Err(e) => {
+                tracing::error!("Failed to render satellite status image for {}: {}", satellite.name, e);
+            }
+        }
+    }
 }
