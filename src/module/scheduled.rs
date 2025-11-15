@@ -2,14 +2,11 @@ use std::sync::Arc;
 use std::time::Duration;
 use chrono::{self, DateTime, Timelike, Utc};
 use crate::{
-    app_status::AppStatus,
-    module::{
-        amsat::{self, prelude::*, official_report},
+    app_status::AppStatus, fs, module::{
+        amsat::{self, prelude::*},
         solar_image,
         tools::render::SATSTATUS_PIC_PATH_PREFIX,
-    },
-    msg::group_msg::send_group_message_to_multiple_groups,
-    response
+    }, msg::group_msg::send_group_message_to_multiple_groups, response
 };
 
 pub async fn scheduled_task_handler(
@@ -228,13 +225,19 @@ pub async fn scheduled_task_handler(
             }
 
             // write user report data back to file
+            let user_reports_value = serde_json::to_value(&user_reports).unwrap_or(serde_json::Value::Null);
             let tx_filerequest = app_status_cp3.file_tx.clone();
-            if let Err(e) = amsat::official_report::write_report_data(
+            match fs::handler::write_file(
                 tx_filerequest,
-                &user_reports,
-                USER_REPORT_DATA.into()
+                USER_REPORT_DATA.to_string(),
+                &fs::handler::FileData::Json(user_reports_value),
             ).await {
-                tracing::error!("用户报告文件写入失败: {}", e);
+                Ok(_) => {
+                    tracing::info!("用户报告数据已更新");
+                }
+                Err(e) => {
+                    tracing::error!("写入用户报告文件失败: {}", e);
+                }
             }
         }
     });

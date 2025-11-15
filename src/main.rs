@@ -18,7 +18,6 @@ use crate::socket::BotMessage;
 use crate::module::handler::router;
 use crate::socket::MsgContent;
 use crate::module::amsat::official_report::amsat_data_handler;
-use crate::module::amsat::official_report::sat_status_cache_handler;
 use crate::module::solar_image::get_image;
 use crate::module::scheduled::scheduled_task_handler;
 
@@ -45,7 +44,6 @@ async fn main() -> anyhow::Result<()> {
         let app_status_clone = Arc::clone(&app_status);
         async move {
             amsat_data_handler(&app_status_clone).await;
-            sat_status_cache_handler(&app_status_clone).await;
             match get_image::get_solar_image(&app_status_clone).await {
                 Ok(_) => {
                     tracing::info!("Solar image updated successfully");

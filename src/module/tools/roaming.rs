@@ -2,16 +2,16 @@ use crate::{
     app_status::AppStatus,
     fs::handler::{FileData, FileFormat, FileRequest},
     module::prelude::*,
-    msg::{group_msg::send_group_msg, prelude::MessageEvent},
+    msg:: prelude::MessageEvent,
     response::ApiResponse,
     module::tools::render,
 };
-use std::{clone, sync::Arc};
+use std::{sync::Arc};
 use regex::Regex;
 use tokio::sync::RwLock;
 use serde::{Serialize, Deserialize};
 
-const USER_ROAMING_DATA: &str = "data/user_roaming_data.json";
+const USER_ROAMING_DATA: &str = "runtime_data/user_roaming_data.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoamingData {
@@ -36,7 +36,7 @@ struct RoamingSubmitHistory {
 }
 
 const MAX_SUBMIT_LIMIT: usize = 3;
-const USER_ROAMING_SUBMIT_HISTORY: &str = "data/user_roaming_submit_history.json";
+const USER_ROAMING_SUBMIT_HISTORY: &str = "runtime_data/user_roaming_submit_history.json";
 
 async fn read_user_roaming_submit_history(
     tx_filerequest: &Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
@@ -357,6 +357,9 @@ pub async fn add_roaming(
         response.data = Some(vec![format!("{}的漫游信息已添加: {}", callsign, grid)]);
     }
 
+    // sort roaming data by submit time, descending
+    roaming_data.sort_by(|a, b| b.submit_time.cmp(&a.submit_time));
+
     match write_roaming_data_to_file(&tx_filerequest, &roaming_data).await {
         Ok(_) => {}
         Err(e) => {
@@ -468,7 +471,7 @@ pub async fn list_roaming(
     // Args: list [Callsign]/[Grid]
     let keywords_filter = args.split_whitespace().nth(1).map(|s| s.to_uppercase());
     if keywords_filter.is_none() {
-        response.data = Some(vec!["file:///server_data/pic/roaming_list.png".to_string()]);
+        response.data = Some(vec!["file:///server_runtime_data/pic/roaming_list.png".to_string()]);
         response.success = true;
         response.message = Some("image".to_string());
         return response;

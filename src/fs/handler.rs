@@ -198,3 +198,101 @@ pub async fn read_config(
 
     Ok(config)
 }
+
+pub async fn load_file(
+    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
+    path: String,
+    file_format: FileFormat,
+) -> anyhow::Result<FileData> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let request = FileRequest::Read {
+        path: path.into(),
+        format: file_format,
+        responder: tx,
+    };
+
+    let tx_filerequest = tx_filerequest.write().await;
+    if let Err(e) = tx_filerequest.send(request).await {
+        return Err(anyhow::anyhow!("Failed to send file read request: {}", e));
+    }
+
+    let file_result = match rx.await {
+        Ok(result) => result,
+        Err(e) => return Err(anyhow::anyhow!("Failed to receive file data: {}", e)),
+    };
+
+    let file_data_raw = match file_result {
+        Ok(FileData::Json(data)) => FileData::Json(data),
+        Ok(FileData::Toml(data)) => FileData::Toml(data),
+        Ok(FileData::Text(data)) => FileData::Text(data),
+        Ok(FileData::Png(data)) => FileData::Png(data),
+        #[allow(unreachable_patterns)]
+        Ok(_) => return Err(anyhow::anyhow!("Unexpected file format received")),
+        Err(e) => return Err(anyhow::anyhow!("Failed to receive file data: {}", e)),
+    };
+
+    Ok(file_data_raw)
+}
+
+pub async fn check_file_exists(
+    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
+    path: String
+) -> bool {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let request = FileRequest::Exists {
+        path: path.into(),
+        responder: tx
+    };
+
+    let tx_filerequest = tx_filerequest.write().await;
+    if let Err(e) = tx_filerequest.send(request).await {
+        tracing::error!("{}", e);
+        return false;
+    }
+
+    let result = match rx.await {
+        Ok(sth) => sth,
+        Err(e) => {
+            tracing::error!("{}", e);
+            return false;
+        }
+    };
+
+    match result {
+        Ok(value) => value,
+        Err(e) => {
+            tracing::error!("{}", e);
+            return false;
+        }
+    }
+}
+
+pub async fn write_file(
+    tx_filerequest: Arc<RwLock<tokio::sync::mpsc::Sender<FileRequest>>>,
+    path: String,
+    file_data: &FileData,
+) -> anyhow::Result<()> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+
+    let (data, format) = match file_data {
+        FileData::Json(value) => (FileData::Json(value.clone()), FileFormat::Json),
+        FileData::Toml(value) => (FileData::Toml(value.clone()), FileFormat::Toml),
+        FileData::Text(value) => (FileData::Text(value.clone()), FileFormat::Text),
+        FileData::Png(value) => (FileData::Png(value.clone()), FileFormat::Png),
+    };
+
+    let request = FileRequest::Write {
+        path: path.into(),
+        format,
+        data,
+        responder: tx,
+    };
+
+    let tx_filerequest = tx_filerequest.write().await;
+    if let Err(e) = tx_filerequest.send(request).await {
+        tracing::error!("Failed to send file write request: {}", e);
+        return Err(anyhow::anyhow!("Failed to send file write request: {}", e));
+    }
+
+    Ok(())
+}

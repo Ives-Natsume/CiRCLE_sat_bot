@@ -1,22 +1,21 @@
 use resvg::render;
 use usvg::{Transform, Tree, Options};
+use chrono::Utc;
 use tiny_skia::Pixmap;
 use fontdb::Database;
-use std::{path::Path, fs, fmt::Write};
+use std::{path::Path, fmt::Write};
 use crate::{
-    app_status::AppStatus,
-    fs::handler::{FileData, FileFormat, FileRequest},
     module::{
         amsat::prelude::{
-            ReportStatus, SatStatus, SatelliteFileElement, SatelliteFileFormat
+            ReportStatus, SatelliteFileFormat
         },
-        tools::roaming::{RoamingData, UserRoamingData}
+        tools::roaming::{UserRoamingData}
     }, msg::prelude::MessageEvent, response::ApiResponse
 };
 
-const SVG_ROAMING_TEMPLATE_PATH: &str = "data/svg_roaming_template.svg";
-const SVG_SATSTATUS_TEMPLATE_PATH: &str = "data/svg_satstatus_template.svg";
-pub const SATSTATUS_PIC_PATH_PREFIX: &str = "data/pic/satstatus_pics/";
+const SVG_ROAMING_TEMPLATE_PATH: &str = "resources/svg_roaming_template.svg";
+const SVG_SATSTATUS_TEMPLATE_PATH: &str = "resources/svg_satstatus_template.svg";
+pub const SATSTATUS_PIC_PATH_PREFIX: &str = "runtime_data/pic/satstatus_pics/";
 
 pub async fn render_roaming_data(
     roaming_data: &Vec<UserRoamingData>,
@@ -31,6 +30,9 @@ pub async fn render_roaming_data(
     const X_PADDING_REMARK: f32 = 340.0;
     const X_PADDING_UPDATE_TIME: f32 = 630.0;
     const X_PADDING_USER_ID: f32 = 880.0;
+    const COLOR_BLOCK_WIDTH: f32 = 12.0;
+    const COLOR_BLOCK_HEIGHT: f32 = 18.0;
+    const COLOR_BLOCK_TEXT_SPACING: f32 = 8.0;
     const FOOTER_HEIGHT: f32 = 32.0;
 
     const EVEN_ROW_COLOR: &str = "#f6f8fa";
@@ -47,6 +49,7 @@ pub async fn render_roaming_data(
 
     let mut rows_svg = String::new();
     let mut total_height = HEADER_HEIGHT;
+    let now_time = Utc::now().to_rfc3339();
 
     for (index, item) in roaming_data.iter().enumerate() {
         // 处理备注文本换行
@@ -65,7 +68,28 @@ pub async fn render_roaming_data(
 
         // 计算行的背景颜色
         let row_color = if index % 2 == 0 { EVEN_ROW_COLOR } else { ODD_ROW_COLOR };
-        
+
+        // 计算更新时间的矩形位置和大小
+        let rect_y = y_pos + (BASE_ROW_HEIGHT - COLOR_BLOCK_HEIGHT) / 2.0;
+        let rect_w = COLOR_BLOCK_WIDTH;
+        let rect_h = COLOR_BLOCK_HEIGHT;
+        // submit_time format: YYYY-MM-DD HH:MM:SS BJT
+        // should convert to ISO 8601 UTC first
+        let submit_time_utc = match convert_bjt_to_utc_iso8601(&item.submit_time) {
+            Ok(utc_string) => utc_string,
+            Err(e) => {
+                tracing::error!("Failed to parse submit_time: {}", e);
+                continue;
+            }
+        };
+        let color = match map_time_to_color(&submit_time_utc, &now_time, 0.0, 168.0) {
+            Ok(color) => color,
+            Err(e) => {
+                tracing::error!("Failed to map time to color: {}", e);
+                continue;
+            }
+        };
+
         // 生成行SVG
         writeln!(
             rows_svg,
@@ -73,6 +97,7 @@ pub async fn render_roaming_data(
         <rect x="0" y="{y_pos}" width="100%" height="{row_height}" fill="{row_color}" />
         <text x="{x_callsign}" y="{text_y}" class="table-text row-text monospace">{callsign}</text>
         <text x="{x_grids}" y="{text_y}" class="table-text row-text monospace">{grids}</text>
+        <rect x="{x_update_time_rect}" y="{rect_y}" width="{rect_w}" height="{rect_h}" fill="{color}" rx="1" />
         <text x="{x_update_time}" y="{text_y}" class="table-text row-text monospace">{update_time}</text>
         <text x="{x_user_id}" y="{text_y}" class="table-text row-text monospace">{user_id}</text>
         <g transform="translate({x_remark}, 0)">
@@ -87,7 +112,8 @@ pub async fn render_roaming_data(
             x_grids = X_PADDING_GRIDS,
             grids = &item.roaming_data.grid,
             x_remark = X_PADDING_REMARK,
-            x_update_time = X_PADDING_UPDATE_TIME,
+            x_update_time_rect = X_PADDING_UPDATE_TIME,
+            x_update_time = X_PADDING_UPDATE_TIME + COLOR_BLOCK_WIDTH + COLOR_BLOCK_TEXT_SPACING,
             update_time = &item.submit_time,
             x_user_id = X_PADDING_USER_ID,
             user_id = &item.user_id,
@@ -123,10 +149,10 @@ pub async fn render_roaming_data(
         .replace("{{ROWS}}", &rows_svg)
         .replace("{{FOOTER}}", &footer_svg);
 
-    // let output_path = "data/output.svg";
+    // let output_path = "runtime_data/output.svg";
     // tokio::fs::write(output_path, final_svg).await?;
 
-    let png_output_path: &Path = Path::new("data/pic/roaming_list.png");
+    let png_output_path: &Path = Path::new("runtime_data/pic/roaming_list.png");
 
     match render_svg_to_png(&final_svg, png_output_path).await {
         Ok(_) => {
@@ -138,6 +164,72 @@ pub async fn render_roaming_data(
             Err(anyhow::anyhow!("Failed to render SVG to PNG: {}", e))
         }
     }
+}
+
+fn convert_bjt_to_utc_iso8601(bjt_string: &str) -> anyhow::Result<String> {
+    // 检查并替换时区缩写 "BJT" 为 UTC 偏移量
+    if !bjt_string.ends_with(" BJT") {
+        return Err(anyhow::anyhow!("输入字符串必须以 ' BJT' 结尾"));
+    }
+    let parsable_string = bjt_string.replace(" BJT", " +0800");
+
+    // 定义输入字符串的格式
+    let format = "%Y-%m-%d %H:%M:%S %z";
+
+    // 解析字符串为带有时区偏移的 DateTime 对象
+    match chrono::DateTime::parse_from_str(&parsable_string, format) {
+        Ok(datetime) => {
+            // 将 DateTime 转换为 UTC 时间
+            let utc_datetime = datetime.with_timezone(&Utc);
+            // 格式化为 ISO 8601 (RFC 3339) 字符串
+            Ok(utc_datetime.to_rfc3339())
+        }
+        Err(e) => Err(anyhow::anyhow!("日期时间解析失败: {}", e)),
+    }
+}
+
+/// 将时间差映射为HEX颜色
+/// target_time: ISO8601格式，如"2025-08-25T10:00:00Z"
+/// now_time: ISO8601格式，如"2025-08-25T15:00:00Z"
+pub fn map_time_to_color(target_time: &str, now_time: &str, min_hours: f64, max_hours: f64) -> anyhow::Result<String> {
+    // 解析输入时间
+    let target = target_time.parse::<chrono::DateTime<Utc>>()?;
+    let now = now_time.parse::<chrono::DateTime<Utc>>()?;
+
+    // 计算小时差
+    let delta = (now - target).num_seconds().abs() as f64 / 3600.0;
+
+    // 颜色锚点
+    let green = (125u8, 227u8, 61u8);      // #7de33dff
+    let yellow = (255u8, 255u8, 0u8);   // #FFFF00
+    let red = (255u8, 0u8, 0u8);        // #FF0000
+
+    let (r, g, b) = if delta <= min_hours {
+        green
+    } else if delta >= max_hours {
+        red
+    } else {
+        let mid = (min_hours + max_hours) / 2.0;
+        if delta <= mid {
+            // 插值绿->黄
+            let t = (delta - min_hours) / (mid - min_hours);
+            lerp_color(green, yellow, t)
+        } else {
+            // 插值黄->红
+            let t = (delta - mid) / (max_hours - mid);
+            lerp_color(yellow, red, t)
+        }
+    };
+
+    Ok(format!("#{:02X}{:02X}{:02X}", r, g, b))
+}
+
+/// 线性插值颜色
+fn lerp_color(c1: (u8, u8, u8), c2: (u8, u8, u8), t: f64) -> (u8, u8, u8) {
+    let r = (c1.0 as f64 + (c2.0 as f64 - c1.0 as f64) * t).round() as u8;
+    let g = (c1.1 as f64 + (c2.1 as f64 - c1.1 as f64) * t).round() as u8;
+    let b = (c1.2 as f64 + (c2.2 as f64 - c1.2 as f64) * t).round() as u8;
+    (r, g, b)
 }
 
 pub async fn render_satstatus_data(
@@ -152,7 +244,7 @@ pub async fn render_satstatus_data(
     const BLOCK_SPACING: f32 = 30.0;
     const LEFT_PADDING: f32 = 20.0;
     const X_CALLSIGN: f32 = 20.0;
-    const X_GRIDS: f32 = 170.0;
+    const X_GRIDS: f32 = 130.0;
     const X_REPORT: f32 = 280.0;
     const X_TIME: f32 = 540.0;
     const COLOR_BLOCK_WIDTH: f32 = 12.0;
@@ -263,6 +355,13 @@ pub async fn render_satstatus_data(
                         .unwrap()
                         .with_timezone(&chrono::Utc);
                     let delta_t = now_utc.signed_duration_since(report_time).num_hours();
+                    let color_time = match map_time_to_color(&report.reported_time, &now_utc.to_rfc3339(), 0.0, 12.0) {
+                        Ok(color) => color,
+                        Err(e) => {
+                            tracing::error!("Failed to map time to color: {}", e);
+                            "#808080".to_string() // 默认灰色
+                        }
+                    };
                     match writeln!(
                         all_blocks_svg,
                         r##"<g class="data-row">
@@ -270,13 +369,15 @@ pub async fn render_satstatus_data(
    <text x="{x_grid}" y="{y_pos}" class="table-text">{grid}</text>
    <rect x="{x_report}" y="{rect_y}" width="{rect_w}" height="{rect_h}" fill="{color}" rx="1" />
    <text x="{report_text_x}" y="{y_pos}" class="table-text">{report}</text>
-   <text x="{x_time}" y="{y_pos}" class="table-text">{time} ({delta_t}h ago)</text>
+   <rect x="{x_time}" y="{rect_y}" width="{rect_w}" height="{rect_h}" fill="{color_time}" rx="1" />
+   <text x="{x_time_text}" y="{y_pos}" class="table-text">{time} ({delta_t}h ago)</text>
 </g>"##,
                         x_callsign = X_CALLSIGN,
                         x_grid = X_GRIDS,
                         x_report = X_REPORT,
                         report_text_x = report_text_x,
                         x_time = X_TIME,
+                        x_time_text = X_TIME + COLOR_BLOCK_WIDTH + COLOR_BLOCK_TEXT_SPACING,
                         y_pos = y_pos,
                         rect_y = y_pos - COLOR_BLOCK_HEIGHT / 2.0,
                         rect_w = COLOR_BLOCK_WIDTH,
@@ -343,7 +444,7 @@ pub async fn render_satstatus_data(
         .replace("{{CONTENT}}", &all_blocks_svg)
         .replace("{{FOOTER}}", &footer_svg);
 
-    // let output_path = "data/output.svg";
+    // let output_path = "runtime_data/output.svg";
     // tokio::fs::write(output_path, final_svg).await?;
 
     let group_id = payload.group_id.clone();
