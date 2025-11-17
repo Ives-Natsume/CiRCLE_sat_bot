@@ -329,9 +329,10 @@ async fn render_satstatus_image_task(app_status_cp: Arc<AppStatus>) {
 
     // render each satellite status image
     for satellite in &official_report {
+        let satellite_name_normalized = string_normalize(&satellite.name);
         match render_satstatus_data(
             &vec![satellite.clone()],
-            format!("{}{}-{}.png", SATSTATUS_PIC_PATH_PREFIX, timestamp_str, satellite.name)
+            format!("{}{}-{}.png", SATSTATUS_PIC_PATH_PREFIX, timestamp_str, satellite_name_normalized)
         ).await {
             Ok(_) => {
                 tracing::info!("Rendered satellite status image for {}", satellite.name);

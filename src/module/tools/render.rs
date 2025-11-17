@@ -5,11 +5,9 @@ use tiny_skia::Pixmap;
 use fontdb::Database;
 use std::{path::Path, fmt::Write};
 use crate::{
-    module::{
-        amsat::prelude::{
-            ReportStatus, SatelliteFileFormat
-        },
-    }, response::ApiResponse
+    module::amsat::prelude::{
+            ReportStatus, SatelliteFileFormat, string_normalize
+        }, response::ApiResponse
 };
 
 const SVG_ROAMING_TEMPLATE_PATH: &str = "resources/svg_roaming_template.svg";
@@ -92,8 +90,12 @@ pub async fn render_satstatus_query_handler(
     let now_utc = chrono::Utc::now();
     let floored_time = floor_to_previous_quarter(now_utc);
     let time_string = floored_time.to_rfc3339();
-    let sat_name: Vec<String> = report_data.iter().map(|block| block.name.clone())
+    let sat_name: Vec<String> = report_data.iter()
+        .map(|block| {
+            string_normalize(&block.name)
+        })
         .collect();
+
     let sat_name_joined = sat_name.join("_");
 
     let output_path_string = format!("{}{}-{}.png", SATSTATUS_PIC_PATH_PREFIX, time_string, sat_name_joined);
