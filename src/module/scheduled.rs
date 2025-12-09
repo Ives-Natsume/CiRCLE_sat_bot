@@ -17,33 +17,41 @@ pub async fn scheduled_task_handler(
         const MAX_RETRIES: u32 = 3;
         const RETRY_DELAY: Duration = Duration::from_secs(60);
         const TIMEOUT: Duration = Duration::from_secs(60 * 5);
+        let mut startup = true;
 
         loop {
             // schedule to run at xx:02, xx:17, xx:32, xx:47 every hour
             let now = Utc::now();
-            let next_trigger = {
-                let current_minute = now.minute();
-                let minute = match current_minute {
-                    0..=16 => 17,
-                    17..=31 => 32,
-                    32..=46 => 47,
-                    _ => 2, // 47..=59 -> next hour's 02
-                };
-                
-                let mut next = now
-                    .with_minute(minute)
-                    .unwrap_or_else(|| now + chrono::Duration::hours(1))
-                    .with_second(0)
-                    .unwrap_or_else(|| now + chrono::Duration::minutes(minute as i64));
+            let next_trigger = match startup {
+                false => {
+                    let current_minute = now.minute();
+                    let minute = match current_minute {
+                        0..=16 => 17,
+                        17..=31 => 32,
+                        32..=46 => 47,
+                        _ => 2, // 47..=59 -> next hour's 02
+                    };
+                    
+                    let mut next = now
+                        .with_minute(minute)
+                        .unwrap_or_else(|| now + chrono::Duration::hours(1))
+                        .with_second(0)
+                        .unwrap_or_else(|| now + chrono::Duration::minutes(minute as i64));
 
-                if minute == 2 && current_minute > 46 {
-                    next = next + chrono::Duration::hours(1);
+                    if minute == 2 && current_minute > 46 {
+                        next = next + chrono::Duration::hours(1);
+                    }
+                    
+                    if next <= now {
+                        next = next + chrono::Duration::minutes(15);
+                    }
+                    next
                 }
-                
-                if next <= now {
-                    next = next + chrono::Duration::minutes(15);
+                true => {
+                    // trigger immediately after startup
+                    startup = false;
+                    now
                 }
-                next
             };
 
             let sleep_duration = (next_trigger - now).to_std().unwrap_or(Duration::from_secs(0));

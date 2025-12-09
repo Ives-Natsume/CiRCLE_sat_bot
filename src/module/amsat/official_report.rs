@@ -258,7 +258,7 @@ pub fn pack_satellite_data(reports: Vec<SatStatus>) -> Option<SatelliteFileForma
 
     let last_update_time = Utc::now().to_rfc3339();
 
-    Some(SatelliteFileFormat { name, last_update_time, data })
+    Some(SatelliteFileFormat { name, last_update_time, data, amsat_update_status: true })
 }
 
 pub fn update_satellite_data(
@@ -350,6 +350,7 @@ pub fn update_satellite_data(
     SatelliteFileFormat {
         name: existing.name,
         last_update_time: now.to_rfc3339(),
+        amsat_update_status: true,
         data: sorted_data,
     }
 }
@@ -441,24 +442,50 @@ pub async fn amsat_data_handler(
     let mut response_data = Vec::new();
     for sat in &satellite_list.satellites {
         let sat_name = &sat.official_name;
+        let mut amsat_update_status = false;
         let data = match get_amsat_data(sat_name, 1, &app_status).await {
-            Ok(data) => data,
+            Ok(data) => {
+                amsat_update_status = true;
+                Some(data)
+            },
             Err(e) => {
                 response.message = Some(format!("{}", e));
-                continue;
+                None
             }
         };
-        if data.is_empty() {
-            continue;
-        }
 
         if let Some(exist_data) = official_report_data.iter_mut().find(|f| f.name == *sat_name) {
-            let updated_data = update_satellite_data(exist_data.clone(), data, 48);
-            *exist_data = updated_data;
+            if amsat_update_status {
+                let data = match data {
+                    Some(d) => d,
+                    None => continue,
+                };
+                let updated_data = update_satellite_data(exist_data.clone(), data, 48);
+                *exist_data = updated_data;
+            } else {
+                // keep existing data and just mark amsat_update_status as false
+                exist_data.amsat_update_status = false;
+            }
         } else {
-            let new_data = pack_satellite_data(data);
-            if let Some(new_data) = new_data {
-                official_report_data.push(new_data);
+            if amsat_update_status {
+                let data = match data {
+                    Some(d) => d,
+                    None => continue,
+                };
+                let new_data = pack_satellite_data(data);
+                if let Some(new_data) = new_data {
+                    official_report_data.push(new_data);
+                }
+                continue;
+            } else {
+                // create empty record
+                let empty_record = SatelliteFileFormat {
+                    name: sat_name.clone(),
+                    last_update_time: Utc::now().to_rfc3339(),
+                    amsat_update_status: false,
+                    data: Vec::new(),
+                };
+                official_report_data.push(empty_record);
             }
         }
     }
@@ -642,6 +669,7 @@ pub async fn query_satellite_status(
             let empty_record = SatelliteFileFormat {
                 name: official_name.clone(),
                 last_update_time: Utc::now().to_rfc3339(),
+                amsat_update_status: false,
                 data: Vec::new(),
             };
             matched_sat_data.push(empty_record);

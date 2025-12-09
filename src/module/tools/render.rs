@@ -294,6 +294,34 @@ pub async fn render_satstatus_data(
                 continue;
             }
 
+            // draw amsat logo
+            let logo_size = ROW_HEIGHT * 0.6;
+            let logo_x = X_TIME;
+            let (amsat_update_status, amsat_update_status_text) = if block.amsat_update_status {
+                ("amsat-update-success", "AMSAT Update: Success")
+            } else {
+                ("amsat-update-failure", "AMSAT Update: Failed")
+            };
+            match writeln!(
+                all_blocks_svg,
+                r##"<image x="{logo_x}" y="{logo_y}" width="{w}" height="{h}" href="resources/amsat.png" />
+<text x="{text_x}" y="{y_pos}" class="{amsat_update_status}">{amsat_update_status_text}</text>
+"##,
+                // keep logo vertically centered with last update time text
+                logo_y = current_y_offset + (ROW_HEIGHT - logo_size) / 2.0,
+                w = logo_size,
+                h = logo_size,
+                y_pos = current_y_offset + ROW_HEIGHT / 2.0,
+                text_x = logo_x + logo_size + 10.0,
+            ) {
+                Ok(_) => {
+                    tracing::debug!("Successfully wrote SVG AMSAT logo for {}", &block.name);
+                }
+                Err(e) => {
+                    tracing::error!("Failed to write SVG: {}", e);
+                }
+            };
+
             // draw last_update_time
             let element_time = chrono::DateTime::parse_from_rfc3339(&block.last_update_time)
                     .unwrap()

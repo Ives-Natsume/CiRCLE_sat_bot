@@ -43,6 +43,7 @@ pub struct SatelliteFileElement {
 pub struct SatelliteFileFormat {
     pub name: String,
     pub last_update_time: String,   // last update time in RFC3339 format
+    pub amsat_update_status: bool,
     pub data: Vec<SatelliteFileElement>,
 }
 
