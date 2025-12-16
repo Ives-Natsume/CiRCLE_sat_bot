@@ -1,0 +1,26 @@
+<svg width="1100" height="720" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    /* 定义通用字体和样式 */
+    .table-text {
+      font-family: Consolas, "NotoSans Mono", monospace, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 22px;
+      dominant-baseline: middle; /* 垂直居中对齐 */
+    }
+  </style>
+
+  <g id="main-container">
+  <image href="{{MAP_IMAGE}}" x="0" y="0" width="720" height="720" />
+  <rect x="720" y="0" width="380" height="720" fill="#e6e6e6ff" />
+
+  <!-- Title -->
+  <text x="740" y="50" font-size="30" font-family="table-text">
+    Earthquake {{EVENT_ID}}
+  </text>
+  <text x="740" y="110" font-size="24" font-family="table-text">震级: {{MAGNITUDE}}</text>
+  <text x="740" y="150" font-size="24" font-family="table-text">深度: {{DEPTH}}</text>
+  <text x="740" y="190" font-size="24" font-family="stable-text">震度: {{SHINDO}}</text>
+  <text x="740" y="230" font-size="24" font-family="stable-text">时间: {{TIME}}</text>
+  <text x="740" y="270" font-size="24" font-family="stable-text">地点: {{LOCATION}}</text>
+  <text x="740" y="710" font-size="14" font-family="stable-text">Data Source: WolfX, JMA</text>
+  </g>
+</svg>

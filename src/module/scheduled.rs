@@ -7,6 +7,7 @@ use crate::{
         solar_image,
         tools::render::{SATSTATUS_PIC_PATH_PREFIX, render_satstatus_data, floor_to_previous_quarter},
     }, msg::group_msg::send_group_message_to_multiple_groups, response,
+    module::earthquake::ws,
 };
 
 pub async fn scheduled_task_handler(
@@ -254,6 +255,11 @@ pub async fn scheduled_task_handler(
         }
     });
 
+    let app_status_cp4 = Arc::clone(app_status);
+    tokio::spawn(async move {
+        ws::eq_listener(&app_status_cp4).await;
+    });
+
     let _old_satstatus_img_cleanup_task = tokio::spawn(start_cleanup_task());
 }
 
@@ -264,6 +270,9 @@ async fn start_cleanup_task() {
         interval.tick().await;
         if let Err(e) = cleanup_old_files().await {
             tracing::error!("Cleanup task failed: {}", e);
+        }
+        if let Err(e) = cleanup_old_eq_files().await {
+            tracing::error!("EQ file cleanup task failed: {}", e);
         }
     }
 }
@@ -297,6 +306,35 @@ async fn cleanup_old_files() -> anyhow::Result<()> {
                             let _ = tokio::fs::remove_file(&path).await;
                         }
                     }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+async fn cleanup_old_eq_files() -> anyhow::Result<()> {
+    let now = Utc::now();
+    let dir = std::path::Path::new(ws::EQ_PIC_PATH_PREFIX);
+
+    if !dir.exists() {
+        std::fs::create_dir_all(dir)?;
+    }
+
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.extension().map(|ext| ext == "png" || ext == "json").unwrap_or(false) {
+            let metadata = std::fs::metadata(&path)?;
+            if let Ok(modified_time) = metadata.modified() {
+                let modified_datetime: DateTime<Utc> = modified_time.into();
+                let age = now.signed_duration_since(modified_datetime).num_seconds();
+
+                if age > 60 * 60 {
+                    tracing::info!("Deleting expired EQ image file: {:?}", path);
+                    let _ = tokio::fs::remove_file(&path).await;
                 }
             }
         }
@@ -350,4 +388,10 @@ async fn render_satstatus_image_task(app_status_cp: Arc<AppStatus>) {
             }
         }
     }
+}
+
+/// Render all earthquake event in event list
+/// TODO: implement the function
+async fn _render_eq_event_list_image_task() {
+
 }

@@ -12,6 +12,7 @@ channels = { version = "0.13.0", features = ["full"] }
 chrono = "0.4.41"
 fontdb = "0.23.0"
 futures = "0.3.31"
+futures-util = "0.3.31"
 indexmap = "2.10.0"
 lazy_static = "1.5.0"
 regex = "1.11.1"
@@ -23,9 +24,11 @@ serde_json = "1.0.141"
 strsim = "0.11.1"
 tiny-skia = "0.11.4"
 tokio = { version = "1.47.0", features = ["full"] }
+tokio-tungstenite = { version = "0.28.0", features = ["native-tls", "rustls-tls-native-roots"] }
 toml = "0.9.4"
 tracing = "0.1.41"
 tracing-appender = "0.2.3"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "std"] }
+tungstenite = "0.28.0"
 url = "2.5.4"
 usvg = "0.45.1"

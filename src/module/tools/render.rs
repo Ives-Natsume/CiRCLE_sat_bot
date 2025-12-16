@@ -7,7 +7,9 @@ use std::{path::Path, fmt::Write};
 use crate::{
     module::amsat::prelude::{
             ReportStatus, SatelliteFileFormat, string_normalize
-        }, response::ApiResponse
+    },
+    module::earthquake,
+    response::ApiResponse
 };
 
 const SVG_ROAMING_TEMPLATE_PATH: &str = "resources/svg_roaming_template.svg";
@@ -216,6 +218,47 @@ async fn render_svg_to_png(svg_data: &str, output_path: &Path) -> Result<(), Box
     tokio::fs::write(output_path, png_data).await?;
     
     Ok(())
+}
+
+pub async fn render_earthquake_map_svg(
+    magnitude: f32,
+    shindo: String,
+    depth: f32,
+    hypocenter: String,
+    occurrence_time: String,
+    event_id: String,
+    raw_image_path: String,
+) -> anyhow::Result<()> {
+    let svg_template = read_svg_template_file("resources/svg_earthquake_template.svg").await;
+    let svg_template = match svg_template {
+        Ok(content) => content,
+        Err(e) => {
+            tracing::error!("{}", e);
+            return Err(anyhow::anyhow!("{}", e));
+        }
+    };
+
+    let svg_filled = svg_template
+        .replace("{{MAGNITUDE}}", &format!("{:.1}", magnitude))
+        .replace("{{SHINDO}}", &shindo)
+        .replace("{{DEPTH}}", &format!("{:.1} km", depth))
+        .replace("{{LOCATION}}", &hypocenter)
+        .replace("{{TIME}}", &occurrence_time)
+        .replace("{{EVENT_ID}}", &event_id)
+        .replace("{{MAP_IMAGE}}", &raw_image_path);
+
+    let output_path = format!("runtime_data/pic/eq/earthquake_{}.png", event_id);
+    let png_output_path = Path::new(&output_path);
+    match render_svg_to_png(&svg_filled, png_output_path).await {
+        Ok(_) => {
+            tracing::debug!("Successfully rendered earthquake map PNG to {:?}", png_output_path);
+            Ok(())
+        },
+        Err(e) => {
+            tracing::error!("Failed to render SVG to PNG: {}", e);
+            Err(anyhow::anyhow!("Failed to render SVG to PNG: {}", e))
+        }
+    }
 }
 
 /// Render satellite status data to PNG

@@ -13,6 +13,7 @@ pub struct Config {
     pub bot_config: BotConfig,
     pub backend_config: BackendConfig,
     pub pass_api_config: PassApiConfig,
+    pub earthquake_config: EarthquakeConfig,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -41,6 +42,13 @@ pub struct PassApiConfig {
     pub alt: f64,
     pub day: u32,
     pub min_elevation: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EarthquakeConfig {
+    pub min_magnitude: f64,
+    pub notify_group_id: Vec<u64>,
+    pub python_executable_path: String,
 }
 
 pub trait ConfigProvider: Send + Sync + 'static {
