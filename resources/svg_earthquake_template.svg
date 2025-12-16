@@ -10,7 +10,7 @@
 
   <g id="main-container">
   <image href="{{MAP_IMAGE}}" x="0" y="0" width="720" height="720" />
-  <rect x="720" y="0" width="380" height="720" fill="#e6e6e6ff" />
+  <rect x="720" y="0" width="380" height="720" fill="#ecececff" />
 
   <!-- Title -->
   <text x="740" y="50" font-size="30" font-family="table-text">
@@ -21,6 +21,6 @@
   <text x="740" y="190" font-size="24" font-family="stable-text">震度: {{SHINDO}}</text>
   <text x="740" y="230" font-size="24" font-family="stable-text">时间: {{TIME}}</text>
   <text x="740" y="270" font-size="24" font-family="stable-text">地点: {{LOCATION}}</text>
-  <text x="740" y="710" font-size="14" font-family="stable-text">Data Source: WolfX, JMA</text>
+  <text x="740" y="710" font-size="14" font-family="stable-text">Data Source: WolfX. Rendered by Rinko bot</text>
   </g>
 </svg>

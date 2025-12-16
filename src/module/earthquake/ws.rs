@@ -411,7 +411,7 @@ async fn websocket_loop(url: String, tx: mpsc::Sender<String>, app_status: &Arc<
                                         };
 
                                         // send to multiple groups
-                                        group_msg::send_picture_to_multiple_groups(broadcast_response, app_status).await;
+                                        group_msg::send_group_message_to_multiple_groups(broadcast_response, app_status).await;
 
                                         continue;
                                     }

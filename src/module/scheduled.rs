@@ -381,7 +381,7 @@ async fn render_satstatus_image_task(app_status_cp: Arc<AppStatus>) {
             format!("{}{}-{}.png", SATSTATUS_PIC_PATH_PREFIX, timestamp_str, satellite_name_normalized)
         ).await {
             Ok(_) => {
-                tracing::info!("Rendered satellite status image for {}", satellite.name);
+                tracing::debug!("Rendered satellite status image for {}", satellite.name);
             }
             Err(e) => {
                 tracing::error!("Failed to render satellite status image for {}: {}", satellite.name, e);
