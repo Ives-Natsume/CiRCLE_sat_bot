@@ -333,7 +333,7 @@ async fn cleanup_old_eq_files() -> anyhow::Result<()> {
                 let age = now.signed_duration_since(modified_datetime).num_seconds();
 
                 if age > 60 * 60 {
-                    tracing::info!("Deleting expired EQ image file: {:?}", path);
+                    tracing::debug!("Deleting expired EQ image file: {:?}", path);
                     let _ = tokio::fs::remove_file(&path).await;
                 }
             }

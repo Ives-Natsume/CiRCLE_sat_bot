@@ -396,22 +396,23 @@ async fn websocket_loop(url: String, tx: mpsc::Sender<String>, app_status: &Arc<
                                                 continue;
                                             }
                                         }
+                                        else {
+                                            // generate a broadcast message for non-final event
+                                            let broadcast_data: String = format!(
+                                                "Preliminary Earthquake Event Received:\nEvent ID: {}\nLatitude: {}\nLongitude: {}\nMagnitude: {}\nLocation: {}",
+                                                event_id, latitude, longitude, magnitude, location
+                                            );
+                                            let broadcast_response: ApiResponse<Vec<String>> = ApiResponse {
+                                                data: Some(vec![broadcast_data]),
+                                                message: Some(format!("Received preliminary earthquake event ID: {}. Awaiting final update.", event_id)),
+                                                success: true,
+                                            };
+
+                                            // send to multiple groups
+                                            group_msg::send_group_message_to_multiple_groups(broadcast_response, app_status).await;
+                                        }
                                         eq_event_list.processed.insert(event_key, false);
                                         eq_event_list.to_json_file(EQ_LIST_JSON_PATH).await.expect("Failed to save eq_event_list.json");
-
-                                        // generate a broadcast message for non-final event
-                                        let broadcast_data: String = format!(
-                                            "Preliminary Earthquake Event Received:\nEvent ID: {}\nLatitude: {}\nLongitude: {}\nMagnitude: {}\nLocation: {}",
-                                            event_id, latitude, longitude, magnitude, location
-                                        );
-                                        let broadcast_response: ApiResponse<Vec<String>> = ApiResponse {
-                                            data: Some(vec![broadcast_data]),
-                                            message: Some(format!("Received preliminary earthquake event ID: {}. Awaiting final update.", event_id)),
-                                            success: true,
-                                        };
-
-                                        // send to multiple groups
-                                        group_msg::send_group_message_to_multiple_groups(broadcast_response, app_status).await;
 
                                         continue;
                                     }

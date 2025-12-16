@@ -2,7 +2,8 @@
   <style>
     /* 定义通用字体和样式 */
     .table-text {
-      font-family: Consolas, "NotoSans Mono", monospace, "Segoe UI", Helvetica, Arial, sans-serif;
+      /* Recommended for code/logs */
+      font-family: Consolas, "Noto Sans Mono CJK JP", "Noto Sans Mono CJK SC", monospace;
       font-size: 22px;
       dominant-baseline: middle; /* 垂直居中对齐 */
     }
@@ -18,9 +19,10 @@
   </text>
   <text x="740" y="110" font-size="24" font-family="table-text">震级: {{MAGNITUDE}}</text>
   <text x="740" y="150" font-size="24" font-family="table-text">深度: {{DEPTH}}</text>
-  <text x="740" y="190" font-size="24" font-family="stable-text">震度: {{SHINDO}}</text>
-  <text x="740" y="230" font-size="24" font-family="stable-text">时间: {{TIME}}</text>
-  <text x="740" y="270" font-size="24" font-family="stable-text">地点: {{LOCATION}}</text>
-  <text x="740" y="710" font-size="14" font-family="stable-text">Data Source: WolfX. Rendered by Rinko bot</text>
+  <text x="740" y="190" font-size="24" font-family="table-text">震度: {{SHINDO}}</text>
+  <text x="740" y="230" font-size="24" font-family="table-text">时间: {{TIME}}</text>
+  <text x="740" y="270" font-size="24" font-family="table-text">地点: {{LOCATION}}</text>
+  <text x="740" y="710" font-size="14" font-family="table-text">Data Source: WolfX. Rendered by Rinko bot</text>
   </g>
 </svg>
+v

@@ -203,6 +203,7 @@ async fn render_svg_to_png(svg_data: &str, output_path: &Path) -> Result<(), Box
     fontdb.load_fonts_dir("fonts");
 
     let mut options = Options::default();
+    options.font_family = "Consolas".to_string();
     options.fontdb = fontdb.into();
     let rtree = Tree::from_str(svg_data, &options)?;
 
