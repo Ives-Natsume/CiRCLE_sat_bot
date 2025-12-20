@@ -645,7 +645,7 @@ pub async fn query_satellite_status(
             .map(|s| s.to_string())
             .collect();
     } else if inputs.iter().any(|&s| s.to_ascii_lowercase() == "lin" || s.to_ascii_lowercase() == "linear") {
-        sat_query_list = vec!["AO-7", "AO-27", "FO-29", "QO-100", "JO-97"]
+        sat_query_list = vec!["AO-7", "AO-27", "FO-29", "RS-44", "QO-100", "JO-97"]
             .iter()
             .map(|s| s.to_string())
             .collect();

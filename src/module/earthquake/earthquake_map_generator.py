@@ -76,17 +76,17 @@ def generate_earthquake_map(eq_event: EqEvent, output_file_path: str):
     # Plot earthquake location
     match eq_event.magnitude:
         case mag if mag < 3.0:
-            marker_style = {'marker': 'o', 'color': "#2BFF00", 'markersize': mag * 2.5}
+            marker_style = {'marker': 'o', 'color': "#2BFF00", 'markersize': mag * 3.0}
         case mag if 3.0 <= mag <4.0:
-            marker_style = {'marker': 'o', 'color': "#FFFF00", 'markersize': mag * 3.0}
+            marker_style = {'marker': 'o', 'color': "#FFFF00", 'markersize': mag * 3.5}
         case mag if 4.0 <= mag <5.0:
-            marker_style = {'marker': 'o', 'color': "#FFA500", 'markersize': mag * 3.2}
+            marker_style = {'marker': 'o', 'color': "#FFA500", 'markersize': mag * 4.0}
         case mag if 5.0 <= mag <6.0:
-            marker_style = {'marker': 'o', 'color': "#FF4500", 'markersize': mag * 3.4}
+            marker_style = {'marker': 'o', 'color': "#FF4500", 'markersize': mag * 4.4}
         case mag if 6.0 <= mag <7.0:
-            marker_style = {'marker': 'o', 'color': "#C50000", 'markersize': mag * 3.4}
+            marker_style = {'marker': 'o', 'color': "#C50000", 'markersize': mag * 4.8}
         case mag if mag >= 7.0:
-            marker_style = {'marker': 'o', 'color': "#7000BB", 'markersize': mag * 3.4}
+            marker_style = {'marker': 'o', 'color': "#7000BB", 'markersize': mag * 5.2}
         case _:
             marker_style = {'marker': 'o', 'color': 'red', 'markersize': 12}
     

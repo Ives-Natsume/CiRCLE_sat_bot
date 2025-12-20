@@ -1,28 +1,126 @@
-<svg width="1100" height="720" xmlns="http://www.w3.org/2000/svg">
-  <style>
-    /* 定义通用字体和样式 */
-    .table-text {
-      /* Recommended for code/logs */
-      font-family: Consolas, "Noto Sans Mono CJK JP", "Noto Sans Mono CJK SC", monospace;
-      font-size: 22px;
-      dominant-baseline: middle; /* 垂直居中对齐 */
-    }
-  </style>
+<svg width="1640" height="1000" viewBox="0 0 1640 1000" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
 
-  <g id="main-container">
-  <image href="{{MAP_IMAGE}}" x="0" y="0" width="720" height="720" />
-  <rect x="720" y="0" width="380" height="720" fill="#ecececff" />
+  <defs>
+    <style>
+      /* Using Noto Sans for a cleaner, modern data look. 
+         Falls back to sans-serif if not found. */
+      .font-cjk { font-family: "Noto Serif CJK JP", serif; }
+      .font-base { font-family: "Roboto", "Helvetica Neue", sans-serif; }
+      .font-mono { font-family: "JetBrains Mono", "Courier New", monospace; }
+      
+      /* Color Palette */
+      .bg-sidebar { fill: #FFFFFF; }
+      .bg-soft { fill: #F8FAFC; }
+      .text-primary { fill: #0F172A; } /* Slate 900 */
+      .text-secondary { fill: #64748B; } /* Slate 500 */
+      .text-accent { fill: #DC2626; } /* Red 600 */
+      .divider { stroke: #E2E8F0; stroke-width: 1; }
+      
+      /* Typography Classes */
+      .header-title { font-size: 38px; font-weight: 800; letter-spacing: -0.02em; }
+      .header-sub { font-size: 16px; font-weight: 500; fill: #64748B; }
+      
+      .label { font-size: 20px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; fill: #94A3B8; }
+      .value-lg { font-size: 26px; font-weight: 500; fill: #334155; }
+      .value-xl { font-size: 68px; font-weight: 800; fill: #0F172A; }
+      .unit { font-size: 24px; font-weight: 600; fill: #94A3B8; }
+    </style>
 
-  <!-- Title -->
-  <text x="740" y="50" font-size="30" font-family="table-text">
-    Earthquake {{EVENT_ID}}
-  </text>
-  <text x="740" y="110" font-size="24" font-family="table-text">震级: {{MAGNITUDE}}</text>
-  <text x="740" y="150" font-size="24" font-family="table-text">深度: {{DEPTH}}</text>
-  <text x="740" y="190" font-size="24" font-family="table-text">震度: {{SHINDO}}</text>
-  <text x="740" y="230" font-size="24" font-family="table-text">时间: {{TIME}}</text>
-  <text x="740" y="270" font-size="24" font-family="table-text">地点: {{LOCATION}}</text>
-  <text x="740" y="710" font-size="14" font-family="table-text">Data Source: WolfX. Rendered by Rinko bot</text>
+    <filter id="shadow" x="-50%" y="0" width="200%" height="100%">
+      <feDropShadow dx="-4" dy="0" stdDeviation="15" flood-opacity="0.1"/>
+    </filter>
+
+    <linearGradient id="grad-mag" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FEF2F2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FEE2E2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1000" height="1000" fill="#E2E8F0"/>
+  <image href="{{MAP_IMAGE}}" x="0" y="0" width="1000" height="1000" preserveAspectRatio="xMidYMid slice"/>
+
+  <g transform="translate(1000, 0)">
+    <rect x="0" y="0" width="640" height="1000" class="bg-sidebar" filter="url(#shadow)"/>
+    
+    <g transform="translate(60, 80)">
+      <rect x="0" y="0" width="60" height="6" rx="3" fill="#DC2626" />
+      
+      <text x="0" y="50" class="font-cjk header-title text-primary">緊急地震速報</text>
+      
+      <g transform="translate(0, 70)">
+        <rect x="0" y="0" width="240" height="32" rx="6" fill="#F1F5F9"/>
+        <text x="12" y="22" class="font-mono" font-size="20" fill="#475569">ID: {{EVENT_ID}}</text>
+      </g>
+    </g>
+
+    <line x1="60" y1="220" x2="580" y2="220" class="divider"/>
+
+    <g transform="translate(60, 260)">
+      
+      <g>
+        <circle cx="70" cy="70" r="70" fill="url(#grad-mag)"/>
+        <text x="70" y="35" class="font-base" font-size="26" font-weight="900" fill="#EF4444" text-anchor="middle">MAGNITUDE</text>
+        <text x="70" y="105" class="font-base value-xl" text-anchor="middle" letter-spacing="-0.03em">{{MAGNITUDE}}</text>
+      </g>
+
+      <g transform="translate(260, 0)">
+        <rect x="0" y="0" width="260" height="140" rx="16" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1"/>
+        
+        <text x="30" y="35" class="font-base label">MAX INTENSITY</text>
+        <!-- <g transform="translate(200, 30)">
+           <path d="M-10 0 L0 -20 L10 0 M-15 10 L-5 -10 L5 10" stroke="#CBD5E1" stroke-width="2" fill="none"/>
+        </g> -->
+        <text x="30" y="100" class="font-cjk" font-size="48" font-weight="700" fill="#0F172A">震度 {{SHINDO}}</text>
+      </g>
+    </g>
+
+    <g transform="translate(60, 460)">
+      
+      <g transform="translate(0, 0)">
+        <g class="icon-box">
+          <rect x="0" y="0" width="48" height="48" rx="12" fill="#EFF6FF"/>
+          <path d="M24 14c-4.4 0-8 3.6-8 8 0 5.4 8 14 8 14s8-8.6 8-14c0-4.4-3.6-8-8-8zm0 11c-1.7 0-3-1.3-3-3s1.3-3 3-3 3 1.3 3 3-1.3 3-3 3z" fill="#3B82F6"/>
+        </g>
+        <text x="64" y="16" class="font-base label">EPICENTER LOCATION</text>
+        <text x="64" y="48" class="font-cjk value-lg">{{LOCATION}}</text>
+      </g>
+
+      <line x1="64" y1="80" x2="520" y2="80" class="divider" stroke-dasharray="4 4"/>
+
+      <g transform="translate(0, 110)">
+        <g class="icon-box">
+          <rect x="0" y="0" width="48" height="48" rx="12" fill="#F0FDF4"/>
+          <path d="M24 14v20m0 0l-6-6m6 6l6-6M16 14h16" stroke="#22C55E" stroke-width="3" stroke-linecap="round" fill="none"/>
+        </g>
+        <text x="64" y="16" class="font-base label">DEPTH</text>
+        <text x="64" y="48" class="font-cjk value-lg">{{DEPTH}}</text>
+      </g>
+
+      <line x1="64" y1="190" x2="520" y2="190" class="divider" stroke-dasharray="4 4"/>
+
+      <g transform="translate(0, 220)">
+        <g class="icon-box">
+          <rect x="0" y="0" width="48" height="48" rx="12" fill="#FFF7ED"/>
+          <circle cx="24" cy="24" r="9" stroke="#F97316" stroke-width="2.5" fill="none"/>
+          <path d="M24 18v6l4 2" stroke="#F97316" stroke-width="2.5" stroke-linecap="round"/>
+        </g>
+        <text x="64" y="16" class="font-base label">TIME OF OCCURRENCE</text>
+        <text x="64" y="48" class="font-cjk value-lg">{{TIME}}</text>
+      </g>
+
+    </g>
+
+    <g transform="translate(60, 920)">
+      <line x1="0" y1="0" x2="520" y2="0" class="divider"/>
+      <g transform="translate(0, 40)">
+        <rect x="0" y="-12" width="24" height="24" rx="4" fill="#334155"/>
+        <path d="M5 0 L19 0 L12 12 Z" fill="#fff" transform="translate(0, -6) scale(0.5) translate(12,12)"/>
+        
+        <text x="36" y="5" class="font-mono" font-size="16" fill="#94A3B8">
+          SOURCE: WolfX · RENDER: Rinko Bot · UI: Gemini3
+        </text>
+      </g>
+    </g>
+
   </g>
 </svg>
-v
