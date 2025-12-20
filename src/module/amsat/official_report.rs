@@ -635,27 +635,50 @@ pub async fn query_satellite_status(
         }
     };
 
+    let mut sat_query_list: Vec<String> = Vec::new();
     let mut match_sat: Vec<String> = Vec::new();
 
     // check if input contains `fm`
     if inputs.iter().any(|&s| s.to_ascii_lowercase() == "fm") {
-        match_sat = vec!["AO-91", "PO-101[FM]", "ISS-FM", "SO-50", "AO-123", "SO-124", "SO-125"]
+        sat_query_list = vec!["AO-91", "PO-101[FM]", "ISS-FM", "SO-50", "AO-123", "SO-124", "SO-125"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+    } else if inputs.iter().any(|&s| s.to_ascii_lowercase() == "lin" || s.to_ascii_lowercase() == "linear") {
+        sat_query_list = vec!["AO-7", "AO-27", "FO-29", "QO-100", "JO-97"]
             .iter()
             .map(|s| s.to_string())
             .collect();
     } else {
+        // for sat in inputs {
+        //     let match_sat_raw = search_satellites(sat, &satellite_lists, 0.95);
+        //     for sat in match_sat_raw {
+        //         if !match_sat.contains(&sat) {
+        //             match_sat.push(sat);
+        //         }
+        //     }
+        // }
+        // if match_sat.is_empty() {
+        //     response.message = Some("^ ^)/".to_string());
+        //     return response;
+        // }
         for sat in inputs {
-            let match_sat_raw = search_satellites(sat, &satellite_lists, 0.95);
-            for sat in match_sat_raw {
-                if !match_sat.contains(&sat) {
-                    match_sat.push(sat);
-                }
+            sat_query_list.push(sat.to_string());
+        }
+    }
+
+    for query in sat_query_list {
+        let match_sat_raw = search_satellites(&query, &satellite_lists, 0.95);
+        for sat in match_sat_raw {
+            if !match_sat.contains(&sat) {
+                match_sat.push(sat);
             }
         }
-        if match_sat.is_empty() {
-            response.message = Some("^ ^)/".to_string());
-            return response;
-        }
+    }
+
+    if match_sat.is_empty() {
+        response.message = Some("^ ^)/".to_string());
+        return response;
     }
 
     let mut matched_sat_data: Vec<SatelliteFileFormat> = Vec::new();
