@@ -18,7 +18,7 @@ pub use types::*;
 // ============ AMSAT Entry Types ============
 pub mod amsat_types;
 pub use amsat_types::{
-    AmsatEntry, ParsedAmsatName, parse_amsat_name, normalize_for_search,
+    AmsatEntry, AsrtuTelemetrySnapshot, ParsedAmsatName, parse_amsat_name, normalize_for_search,
     find_matching_transponder_index,
 };
 
@@ -45,6 +45,7 @@ pub use search::{
 
 // ============ API Client and Scraper ============
 mod api_client;
+mod asrtu_client;
 mod scraper;
 pub use scraper::SatelliteScraper;
 
@@ -52,6 +53,5 @@ pub use scraper::SatelliteScraper;
 mod cache;
 pub use cache::cleanup_old_images;
 
-// ============ Updater ============
-mod updater;
-pub use updater::{SatelliteUpdater, start_satellite_updater};
+// SatelliteUpdater (updater.rs) has been removed — its logic was fully
+// duplicated by ScheduledTaskManager in scheduled.rs and was never called.

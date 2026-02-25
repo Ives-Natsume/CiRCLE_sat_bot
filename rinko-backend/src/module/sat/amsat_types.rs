@@ -8,6 +8,60 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use super::types::{SatelliteDataBlock, ReportStatus};
 
+// ============ ASRTU Telemetry ============
+
+/// Hardware-confirmed repeater state from the ASRTU telemetry API.
+///
+/// This snapshot is stored **separately** from crowd-sourced [`AmsatReport`] observations
+/// so that renderers can present it as a distinct, authoritative data source rather than
+/// mixing it with user-submitted reports.  AMSAT reports are still fetched and displayed
+/// independently for reference.
+///
+/// [`AmsatReport`]: super::types::AmsatReport
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AsrtuTelemetrySnapshot {
+    /// Hardware-confirmed repeater state: `true` when the CTCSS encoder is enabled.
+    pub repeater_on: bool,
+    /// Raw CTCSS enable register value — internal use only, not shown to users.
+    #[serde(rename = "ctcss")]
+    pub(crate) ctcss_value: String,
+    /// RFC3339 timestamp at which the telemetry server received this frame.
+    pub observed_at: String,
+}
+
+impl AsrtuTelemetrySnapshot {
+    /// Human-readable power state: `"Repeater On"` or `"Repeater Off"`.
+    pub fn status_label(&self) -> &'static str {
+        if self.repeater_on { "Repeater On" } else { "Repeater Off" }
+    }
+
+    /// Observation time as a display string, e.g.
+    /// `"Observed at 2026-02-21 14:41 UTC (2 hours ago)"`.
+    pub fn observed_description(&self) -> String {
+        if let Ok(dt) = DateTime::parse_from_rfc3339(&self.observed_at) {
+            let dt_utc = dt.with_timezone(&Utc);
+            let diff = Utc::now().signed_duration_since(dt_utc);
+            let time_str = dt_utc.format("%Y-%m-%d %H:%M UTC");
+            let hours = diff.num_hours();
+            let minutes = diff.num_minutes();
+            if hours >= 1 {
+                format!("Observed at {} ({} hour{} ago)", time_str, hours, if hours == 1 { "" } else { "s" })
+            } else if minutes >= 1 {
+                format!("Observed at {} ({} minute{} ago)", time_str, minutes, if minutes == 1 { "" } else { "s" })
+            } else {
+                format!("Observed at {} (just now)", time_str)
+            }
+        } else {
+            format!("Observed at {}", self.observed_at)
+        }
+    }
+
+    /// Attribution label to show in the UI.
+    pub fn data_source() -> &'static str {
+        "ASRTU-1 Group"
+    }
+}
+
 /// AMSAT entry - the primary unit for user queries and status display
 ///
 /// Each entry maps 1:1 with an AMSAT API satellite name.
@@ -41,6 +95,14 @@ pub struct AmsatEntry {
     /// Whether AMSAT update was successful
     #[serde(default)]
     pub update_success: bool,
+
+    /// Direct ASRTU hardware telemetry snapshot.
+    ///
+    /// Stored separately from crowd-sourced [`reports`](Self::reports) so that
+    /// renderers can present it as a clearly labelled authoritative data source
+    /// alongside (not instead of) user observations.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asrtu_telemetry: Option<AsrtuTelemetrySnapshot>,
 }
 
 impl AmsatEntry {
@@ -58,10 +120,15 @@ impl AmsatEntry {
             last_updated: Utc::now(),
             last_fetch_success: None,
             update_success: false,
+            asrtu_telemetry: None,
         }
     }
 
-    /// Get latest status from reports
+    /// Get latest status from crowd-sourced AMSAT reports.
+    ///
+    /// ASRTU hardware telemetry is intentionally **not** considered here; it is
+    /// displayed separately by renderers via [`AsrtuTelemetrySnapshot`].  This
+    /// keeps user-submitted observations and hardware data visually distinct.
     pub fn latest_status(&self) -> ReportStatus {
         // Reports are sorted newest-first (by time block)
         if let Some(first_block) = self.reports.first() {

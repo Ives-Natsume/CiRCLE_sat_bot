@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use std::time::Instant;
-use tokio::sync::RwLock;
+use tokio::sync::{RwLock, Semaphore};
 use tokio::time::{sleep, Duration};
 use serde::{Deserialize, Deserializer, Serialize};
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
@@ -131,6 +131,9 @@ struct WebhookState {
     /// are purged on each insertion.  Protected by a std Mutex (never held
     /// across an await point).
     recent_event_ids: Arc<Mutex<HashMap<String, Instant>>>,
+    /// Limits the number of concurrent media uploads to avoid hammering QQ's
+    /// upload API and triggering its rate limiter / fetch-timeout errors.
+    upload_semaphore: Arc<Semaphore>,
 }
 
 /// Webhook handler for QQ bot events
@@ -223,6 +226,7 @@ async fn handle_webhook(
                     handle_event(
                         &state_bg.qq_config,
                         &state_bg.backend_manager,
+                        &state_bg.upload_semaphore,
                         &event_type,
                         &data_bg,
                         event_id,
@@ -274,6 +278,7 @@ async fn handle_validation(
 async fn handle_event(
     qq_config: &Arc<RwLock<QQConfig>>,
     backend_manager: &Option<Arc<BackendConnectionManager>>,
+    upload_semaphore: &Arc<Semaphore>,
     event_type: &str,
     data: &serde_json::Value,
     event_id: Option<String>,
@@ -281,7 +286,7 @@ async fn handle_event(
     match event_type {
         "READY" => tracing::info!("Bot is ready"),
         "GROUP_AT_MESSAGE_CREATE" => {
-            handle_group_at_message(qq_config, backend_manager, data, event_id).await;
+            handle_group_at_message(qq_config, backend_manager, upload_semaphore, data, event_id).await;
         }
         "MESSAGE_CREATE" | "C2C_MESSAGE_CREATE" => {
             tracing::debug!("Message received: {:#?}", data);
@@ -301,6 +306,7 @@ async fn handle_event(
 async fn handle_group_at_message(
     qq_config: &Arc<RwLock<QQConfig>>,
     backend_manager: &Option<Arc<BackendConnectionManager>>,
+    upload_semaphore: &Arc<Semaphore>,
     data: &serde_json::Value,
     event_id: Option<String>,
 ) {
@@ -358,7 +364,20 @@ async fn handle_group_at_message(
                         // If backend returns a response message, send it
                         if !response.message.is_empty() && response.message != "OK" {
                             let config = qq_config.read().await;
-                            let _ = config.send_message(response, &msg_event).await;
+                            if let Err(e) = config.send_message(response, &msg_event, upload_semaphore).await {
+                                tracing::error!("Failed to send backend response to QQ: {}", e);
+                                // Fall back to text reply
+                                let fallback_reply = format!("\nMedia upload failed >_\nPlease retry later.\nMessage received:\n「{}」", content_trimmed);
+                                if let Err(e) = config.send_group_message(
+                                    &msg_event.group_openid,
+                                    &fallback_reply,
+                                    Some(msg_event.id.clone()),
+                                    event_id.clone(),
+                                    Some(1),
+                                ).await {
+                                    tracing::error!("Failed to send fallback reply to QQ: {}", e);
+                                }
+                            }
                         }
                         
                         // Backend handled the message, return early
@@ -496,6 +515,10 @@ impl QQConfig {
             qq_config: qq_config.clone(),
             backend_manager,
             recent_event_ids: Arc::new(Mutex::new(HashMap::new())),
+            // Allow at most 2 concurrent media uploads.  QQ's fetch-timeout
+            // errors (err_code 40034003) become much less frequent when we
+            // avoid sending parallel upload requests.
+            upload_semaphore: Arc::new(Semaphore::new(2)),
         });
 
         let app = Router::new()
@@ -679,15 +702,47 @@ impl QQConfig {
                     "upload_group_media HTTP {} (attempt {}): {}",
                     status, attempt, String::from_utf8_lossy(&raw)
                 );
+                tracing::warn!("upload_group_media 5xx on attempt {}: {}", attempt, last_err);
                 continue;
             }
 
             if !status.is_success() {
-                // 4xx — permanent client error, no point retrying
-                return Err(anyhow::anyhow!(
+                // For 4xx responses, check whether QQ's err_code indicates a
+                // server-side transient failure that is worth retrying:
+                //   40034003 — QQ server timed out fetching the media URL
+                //   40034002 — QQ server failed to download the media URL
+                // These look like client errors (400) but the fault is on QQ's
+                // side; a short wait is usually enough to recover.
+                let qq_err_code = serde_json::from_slice::<serde_json::Value>(&raw)
+                    .ok()
+                    .and_then(|v| v.get("err_code").and_then(|c| c.as_u64()));
+
+                const RETRYABLE_QQ_CODES: &[u64] = &[
+                    40034003, // media fetch timeout on QQ side
+                    40034002, // media download failed on QQ side
+                ];
+
+                if let Some(code) = qq_err_code {
+                    if RETRYABLE_QQ_CODES.contains(&code) {
+                        last_err = anyhow::anyhow!(
+                            "upload_group_media QQ err_code={} (attempt {}): {}",
+                            code, attempt, String::from_utf8_lossy(&raw)
+                        );
+                        tracing::warn!(
+                            "upload_group_media retryable QQ error on attempt {}: {}",
+                            attempt, last_err
+                        );
+                        continue;
+                    }
+                }
+
+                // Permanent 4xx (bad request, auth failure, etc.)
+                let err = anyhow::anyhow!(
                     "upload_group_media HTTP {}: {}",
                     status, String::from_utf8_lossy(&raw)
-                ));
+                );
+                tracing::error!("{}", err);
+                return Err(err);
             }
 
             match serde_json::from_slice::<UploadMediaResponse>(&raw) {
@@ -804,6 +859,7 @@ impl QQConfig {
         msg_id: Option<String>,
         event_id: Option<String>,
         msg_seq: Option<u32>,
+        upload_semaphore: &Semaphore,
     ) -> anyhow::Result<SendMessageResponse> {
         // Extract filename from local path
         let filename = std::path::Path::new(local_path)
@@ -827,7 +883,15 @@ impl QQConfig {
             filename,
             image_url
         );
-        
+
+        // Acquire semaphore permit before uploading.  This caps concurrent
+        // uploads globally so we don't saturate QQ's media-fetch pipeline.
+        let _permit = upload_semaphore
+            .acquire()
+            .await
+            .map_err(|_| anyhow::anyhow!("upload semaphore closed"))?;
+        tracing::debug!("upload semaphore acquired for '{}'", filename);
+
         // Step 1: Upload media and get file_info
         let upload_response = self.upload_group_media(
             group_openid,
@@ -837,6 +901,7 @@ impl QQConfig {
         ).await?;
 
         // Step 2: Send media message using file_info
+        // (_permit is still held here; released when this fn returns)
         self.send_group_media_message(
             group_openid,
             &upload_response.file_info,
@@ -923,7 +988,7 @@ impl QQConfig {
         Ok(response)
     }
 
-    async fn send_message(&self, resp: MessageResponse, msg_event: &GroupMessageEvent) -> anyhow::Result<()> {
+    async fn send_message(&self, resp: MessageResponse, msg_event: &GroupMessageEvent, upload_semaphore: &Semaphore) -> anyhow::Result<()> {
         match resp.content_type {
             ct if ct == ContentType::Text as i32 => {
                 self.send_group_message(
@@ -943,6 +1008,7 @@ impl QQConfig {
                     Some(msg_event.id.clone()),
                     None,
                     Some(1),
+                    upload_semaphore,
                 ).await?;
             }
             _ => {

@@ -170,92 +170,93 @@ fn fuzzy_match(
     matches
 }
 
-/// Normalize string for matching
+/// Normalize string for matching.
+///
+/// Delegates to [`amsat_types::normalize_for_search`] so that the two modules
+/// share a single canonical implementation.
 pub fn normalize_string(s: &str) -> String {
-    s.trim()
-        .to_lowercase()
-        .chars()
-        .filter(|c| !c.is_ascii_punctuation() && !c.is_whitespace())
-        .collect()
+    super::amsat_types::normalize_for_search(s)
 }
 
-/// Special search keywords
+/// Special search keywords.
+///
+/// Returns `Some(results)` when `query` is one of the recognised mode keywords
+/// ("fm", "linear"/"lin", "sstv", "image"/"img"), or `None` otherwise.
+///
+/// Previously this function was silently broken: each match arm declared its
+/// own inner `results` that shadowed the outer one, collected transponders, and
+/// then dropped them without saving → always returned `None`. This is fixed by
+/// having each arm produce a `Vec<Transponder>` that is bound to a single
+/// variable outside the match.
 pub fn check_special_keywords(query: &str, satellites: &[Satellite]) -> Option<Vec<SearchResult>> {
     let normalized = normalize_string(query);
-    #[allow(unused_mut)]
-    let mut results = Vec::new();
-    
-    match normalized.as_str() {
-        "fm" => {
-            // Find all FM transponders
-            let mut results = Vec::new();
-            for sat in satellites {
-                for trans in &sat.transponders {
-                    if trans.mode.to_lowercase().contains("fm")
-                        || trans.label.to_lowercase().contains("fm")
-                        || trans.amsat_api_name.to_lowercase().contains("fm")
-                        || trans.aliases.iter().any(|alias| alias.to_lowercase().contains("fm"))
-                    {
-                        results.push(trans.clone());
-                    }
-                }
-            }
-        }
-        "linear" | "lin" => {
-            // Find all linear transponders
-            let mut results = Vec::new();
-            for sat in satellites {
-                for trans in &sat.transponders {
-                    if trans.mode.to_lowercase().contains("linear")
-                        || trans.mode.to_lowercase().contains("lin")
-                        || trans.mode.to_lowercase().contains("digi")
-                        || trans.label.to_lowercase().contains("linear")
-                        || trans.label.to_lowercase().contains("lin")
-                     {
-                        results.push(trans.clone());
-                     }
-                }
-            }
-        }
-        "sstv" => {
-            let mut results = Vec::new();
-            for sat in satellites {
-                for trans in &sat.transponders {
-                    if trans.mode.to_lowercase().contains("sstv")
-                        || trans.label.to_lowercase().contains("sstv")
-                        || trans.amsat_api_name.to_lowercase().contains("sstv")
-                        || trans.aliases.iter().any(|alias| alias.to_lowercase().contains("sstv"))
-                    {
-                        results.push(trans.clone());
-                    }
-                }
-            }
-        }
-        "image" | "img" => {
-            let mut results = Vec::new();
-            for sat in satellites {
-                for trans in &sat.transponders {
-                    if trans.mode.to_lowercase().contains("image")
-                        || trans.label.to_lowercase() == "image"
-                        || trans.amsat_api_name.to_lowercase().contains("image")
-                        || trans.aliases.iter().any(|alias| alias.to_lowercase().contains("image"))
-                    {
-                        results.push(trans.clone());
-                    }
-                }
-            }
-        }
-        _ => {},
-    }
 
-    if results.is_empty() {
+    let transponders: Vec<Transponder> = match normalized.as_str() {
+        "fm" => satellites
+            .iter()
+            .flat_map(|sat| sat.transponders.iter())
+            .filter(|t| {
+                t.mode.to_lowercase().contains("fm")
+                    || t.label.to_lowercase().contains("fm")
+                    || t.amsat_api_name.to_lowercase().contains("fm")
+                    || t.aliases.iter().any(|a| a.to_lowercase().contains("fm"))
+            })
+            .cloned()
+            .collect(),
+
+        "linear" | "lin" => satellites
+            .iter()
+            .flat_map(|sat| sat.transponders.iter())
+            .filter(|t| {
+                t.mode.to_lowercase().contains("linear")
+                    || t.mode.to_lowercase().contains("lin")
+                    || t.mode.to_lowercase().contains("digi")
+                    || t.label.to_lowercase().contains("linear")
+                    || t.label.to_lowercase().contains("lin")
+            })
+            .cloned()
+            .collect(),
+
+        "sstv" => satellites
+            .iter()
+            .flat_map(|sat| sat.transponders.iter())
+            .filter(|t| {
+                t.mode.to_lowercase().contains("sstv")
+                    || t.label.to_lowercase().contains("sstv")
+                    || t.amsat_api_name.to_lowercase().contains("sstv")
+                    || t.aliases.iter().any(|a| a.to_lowercase().contains("sstv"))
+            })
+            .cloned()
+            .collect(),
+
+        "image" | "img" => satellites
+            .iter()
+            .flat_map(|sat| sat.transponders.iter())
+            .filter(|t| {
+                t.mode.to_lowercase().contains("image")
+                    || t.label.to_lowercase() == "image"
+                    || t.amsat_api_name.to_lowercase().contains("image")
+                    || t.aliases.iter().any(|a| a.to_lowercase().contains("image"))
+            })
+            .cloned()
+            .collect(),
+
+        _ => return None,
+    };
+
+    if transponders.is_empty() {
         None
     } else {
-        Some(results.into_iter().map(|trans| SearchResult {
-            transponder: trans,
-            score: 1.0,
-            match_type: MatchType::ExactName,
-        }).collect())
+        Some(
+            transponders
+                .into_iter()
+                .map(|t| SearchResult {
+                    transponder: t,
+                    score: 1.0,
+                    match_type: MatchType::ExactName,
+                })
+                .collect(),
+        )
     }
 }
 

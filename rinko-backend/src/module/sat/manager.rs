@@ -10,8 +10,8 @@ use crate::module::sat::search::DEFAULT_THRESHOLD;
 ///! lazily at render/query time.
 
 use super::{
-    api_client, scraper,
-    amsat_types::{AmsatEntry, normalize_for_search, find_matching_transponder_index},
+    api_client, asrtu_client, scraper,
+    amsat_types::{AmsatEntry, AsrtuTelemetrySnapshot, normalize_for_search, find_matching_transponder_index},
     types::{AmsatReport, SatelliteDataBlock},
     frequency_db::FrequencyDatabase,
 };
@@ -25,6 +25,9 @@ use strsim::jaro_winkler;
 
 const DATA_RETENTION_HOURS: i64 = 48;
 const API_REQUEST_DELAY_MS: u64 = 200;
+const ASRTU_PRIMARY_API_NAME: &str = "AO-123";
+const ASRTU_ALIAS_NAME: &str = "ASRTU-1";
+const ASRTU_CALLSIGN: &str = "BJ2CR";
 
 /// Update report
 #[derive(Debug, Clone)]
@@ -67,6 +70,9 @@ pub struct SatelliteManager {
 
     /// Update interval (minutes) - stored for reference
     update_interval_minutes: i64,
+
+    /// Optional ASRTU telemetry API endpoint.
+    asrtu_api_url: Option<String>,
 }
 
 impl SatelliteManager {
@@ -76,6 +82,7 @@ impl SatelliteManager {
     pub async fn new(
         cache_dir: impl AsRef<Path>,
         update_interval_minutes: i64,
+        asrtu_api_url: Option<String>,
     ) -> Result<Arc<Self>> {
         let cache_dir_path = cache_dir.as_ref();
         let sat_cache_dir = cache_dir_path.join("satellite_cache");
@@ -90,7 +97,7 @@ impl SatelliteManager {
             super::frequency_db::download_csv_from_github(&csv_path).await?;
         }
 
-        Self::new_with_csv(cache_dir, csv_path, update_interval_minutes).await
+        Self::new_with_csv(cache_dir, csv_path, update_interval_minutes, asrtu_api_url).await
     }
 
     /// Create a new manager with custom CSV path
@@ -98,6 +105,7 @@ impl SatelliteManager {
         cache_dir: impl AsRef<Path>,
         csv_path: impl AsRef<Path>,
         update_interval_minutes: i64,
+        asrtu_api_url: Option<String>,
     ) -> Result<Arc<Self>> {
         let cache_dir = cache_dir.as_ref().to_path_buf();
 
@@ -111,6 +119,14 @@ impl SatelliteManager {
             frequency_db: Arc::new(frequency_db),
             cache_dir,
             update_interval_minutes,
+            asrtu_api_url: asrtu_api_url.and_then(|v| {
+                let trimmed = v.trim().to_string();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed)
+                }
+            }),
         }))
     }
 
@@ -161,10 +177,12 @@ impl SatelliteManager {
 
         tracing::info!("Found {} AMSAT API names from scraper", amsat_api_names.len());
 
-        // Step 2: Fetch status reports from AMSAT API
-        let fetch_results = api_client::batch_fetch_satellites(
+        // Step 2: Fetch status reports from AMSAT API.
+        // Widen the time window per satellite until ≥ 5 individual reports are
+        // collected, so the status history is never empty on low-activity birds.
+        let fetch_results = api_client::batch_fetch_min_reports(
             &amsat_api_names,
-            1, // Last 1 hour
+            5, // target: at least 5 individual reports
             API_REQUEST_DELAY_MS,
         )
         .await;
@@ -214,7 +232,12 @@ impl SatelliteManager {
             }
         } // Write lock dropped
 
-        // Step 4: Save caches
+        // Step 4: Merge ASRTU (AO-123) telemetry if configured
+        if let Some(asrtu_api_url) = self.asrtu_api_url.as_deref() {
+            self.merge_asrtu_status(asrtu_api_url, &mut report).await?;
+        }
+
+        // Step 5: Save caches
         self.save_amsat_cache().await?;
 
         report.total_entries = self.amsat_entries.read().await.len();
@@ -230,6 +253,91 @@ impl SatelliteManager {
         );
 
         Ok(report)
+    }
+
+    async fn merge_asrtu_status(&self, asrtu_api_url: &str, report: &mut UpdateReport) -> Result<()> {
+        let now = Utc::now();
+
+        match asrtu_client::fetch_repeater_status(asrtu_api_url).await {
+            Ok(status) => {
+                let mut entries = self.amsat_entries.write().await;
+                let mut is_new_entry = false;
+
+                let entry = entries
+                    .entry(ASRTU_PRIMARY_API_NAME.to_string())
+                    .or_insert_with(|| {
+                        is_new_entry = true;
+                        AmsatEntry::from_api_name(ASRTU_PRIMARY_API_NAME)
+                    });
+
+                Self::ensure_asrtu_aliases(entry);
+
+                if is_new_entry {
+                    report.new_entries.push(ASRTU_PRIMARY_API_NAME.to_string());
+                }
+
+                // Store hardware-confirmed repeater state.
+                // This is kept strictly separate from the crowd-sourced AmsatReport
+                // list so that renderers can display it as a distinct authoritative
+                // indicator rather than mix it with user observations.
+                entry.asrtu_telemetry = Some(AsrtuTelemetrySnapshot {
+                    repeater_on: status.repeater_on,
+                    ctcss_value: status.ctcss_value.clone(),
+                    observed_at: status.observed_at_rfc3339,
+                });
+
+                entry.last_updated = now;
+                entry.last_fetch_success = Some(now);
+                entry.update_success = true;
+
+                report.successful_updates += 1;
+
+                tracing::info!(
+                    "Stored ASRTU telemetry for {} as {} (CTCSS={}, repeater_on={})",
+                    status.satellite_name,
+                    ASRTU_PRIMARY_API_NAME,
+                    status.ctcss_value,
+                    status.repeater_on,
+                );
+            }
+            Err(err) => {
+                tracing::warn!("Failed to fetch ASRTU telemetry: {}", err);
+
+                let mut entries = self.amsat_entries.write().await;
+                let mut is_new_entry = false;
+                let entry = entries
+                    .entry(ASRTU_PRIMARY_API_NAME.to_string())
+                    .or_insert_with(|| {
+                        is_new_entry = true;
+                        AmsatEntry::from_api_name(ASRTU_PRIMARY_API_NAME)
+                    });
+                Self::ensure_asrtu_aliases(entry);
+                entry.last_updated = now;
+                entry.update_success = false;
+
+                if is_new_entry {
+                    report.new_entries.push(ASRTU_PRIMARY_API_NAME.to_string());
+                }
+
+                report.failed_updates += 1;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn ensure_asrtu_aliases(entry: &mut AmsatEntry) {
+        let required_aliases = [ASRTU_ALIAS_NAME, "ASRTU1"];
+
+        for alias in required_aliases {
+            if !entry
+                .aliases
+                .iter()
+                .any(|existing| existing.eq_ignore_ascii_case(alias))
+            {
+                entry.aliases.push(alias.to_string());
+            }
+        }
     }
 
     /// Merge new reports into existing data blocks (static helper)
@@ -666,6 +774,11 @@ mod tests {
             AmsatEntry::from_api_name("AO-92"),
             AmsatEntry::from_api_name("RS-44"),
             AmsatEntry::from_api_name("FO-118[H/u]"),
+            {
+                let mut asrtu = AmsatEntry::from_api_name("AO-123");
+                asrtu.aliases.push("ASRTU-1".to_string());
+                asrtu
+            },
         ]
     }
 
@@ -752,6 +865,16 @@ mod tests {
 
         let results = search_amsat_entries("", &refs);
         assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_search_asrtu_alias() {
+        let entries = make_test_entries();
+        let refs: Vec<&AmsatEntry> = entries.iter().collect();
+
+        let results = search_amsat_entries("Asrtu-1", &refs);
+        assert!(!results.is_empty());
+        assert_eq!(results[0].entry.api_name, "AO-123");
     }
 
     #[test]

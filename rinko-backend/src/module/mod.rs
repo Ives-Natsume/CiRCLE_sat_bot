@@ -1,7 +1,9 @@
 pub mod sat;
 pub mod handler;
+pub mod news;
 pub mod scheduled;
 pub mod dx_world;
 pub mod lotw;
 pub mod qo100;
 pub mod renderer;
+pub mod sat_rev;

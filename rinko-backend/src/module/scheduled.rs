@@ -261,26 +261,47 @@ impl ScheduledTaskManager {
         }
     }
 
-    /// Calculate next update time (at xx:02, xx:17, xx:32, xx:47)
-    fn calculate_next_update_time(now: DateTime<Utc>, _interval_minutes: u64) -> DateTime<Utc> {
-        let target_minutes = [2, 17, 32, 47];
+    /// Calculate the next trigger time for satellite updates.
+    ///
+    /// B-6 fix: trigger minutes are now derived from `interval_minutes` instead of
+    /// being hard-coded to [2, 17, 32, 47] (which implicitly assumed 15-min intervals
+    /// regardless of the configured value).
+    ///
+    /// The sequence starts at offset=2 and advances by `interval_minutes`:
+    ///   interval=10  →  [2, 12, 22, 32, 42, 52]
+    ///   interval=15  →  [2, 17, 32, 47]
+    ///   interval=30  →  [2, 32]
+    ///   interval=60  →  [2]
+    ///
+    /// The +2-minute offset pulls the trigger slightly after the standard TLE
+    /// refresh cycle (xx:00, xx:15, …) to avoid hitting the AMSAT API during
+    /// peak update traffic.
+    fn calculate_next_update_time(now: DateTime<Utc>, interval_minutes: u64) -> DateTime<Utc> {
+        let interval = interval_minutes.max(1) as u32;
+        let offset: u32 = 2;
+
+        // Build the sorted list of trigger minutes within [0, 60)
+        let mut targets: Vec<u32> = (0..)
+            .map(|i| offset + i * interval)
+            .take_while(|&m| m < 60)
+            .collect();
+        targets.sort_unstable();
+
         let current_minute = now.minute();
         let current_hour = now.hour();
 
-        // Find next target minute in current or next hour
-        for &target in &target_minutes {
-            if target > current_minute {
-                return now
-                    .with_minute(target)
-                    .unwrap()
-                    .with_second(0)
-                    .unwrap()
-                    .with_nanosecond(0)
-                    .unwrap();
-            }
+        // Find the next trigger minute strictly after the current minute
+        if let Some(&target) = targets.iter().find(|&&t| t > current_minute) {
+            return now
+                .with_minute(target)
+                .unwrap()
+                .with_second(0)
+                .unwrap()
+                .with_nanosecond(0)
+                .unwrap();
         }
 
-        // If no target in current hour, use first target of next hour
+        // Wrap to the first trigger minute of the next hour
         let next_hour = if current_hour == 23 {
             now + chrono::Duration::hours(1)
         } else {
@@ -288,7 +309,7 @@ impl ScheduledTaskManager {
         };
 
         next_hour
-            .with_minute(target_minutes[0])
+            .with_minute(targets[0])
             .unwrap()
             .with_second(0)
             .unwrap()
@@ -336,38 +357,13 @@ impl ScheduledTaskManager {
     }
 
     /// Image cleanup loop
+    ///
+    /// B-1 fix: sleep until the next scheduled time *first*, then run the cleanup.
+    /// The previous implementation ran cleanup at the top of every iteration
+    /// (labelled "Initial" but firing on every cycle) AND again after the sleep,
+    /// resulting in two cleanup passes per 24-hour period.
     async fn image_cleanup_loop(cache_dir: String, interval_hours: u64, retention_days: i64) {
         loop {
-            // Execute cleanup once started
-            match Self::run_image_cleanup(&cache_dir, retention_days).await {
-                Ok(deleted_count) => {
-                    if deleted_count > 0 {
-                        tracing::info!("Initial image cleanup completed: deleted {} old images", deleted_count);
-                    } else {
-                        tracing::debug!("Initial image cleanup completed: no old images to delete");
-                    }
-                }
-                Err(e) => {
-                    tracing::error!("Initial image cleanup failed: {}", e);
-                }
-            }
-
-            match super::dx_world::dx_world::cleanup_old_dx_world_files(
-                &std::path::PathBuf::from("data/dx_world"),
-                retention_days
-            ).await {
-                Ok(deleted_count) => {
-                    if deleted_count > 0 {
-                        tracing::info!("Initial DX World file cleanup completed: deleted {} old files", deleted_count);
-                    } else {
-                        tracing::debug!("Initial DX World file cleanup completed: no old files to delete");
-                    }
-                }
-                Err(e) => {
-                    tracing::error!("Initial DX World file cleanup failed: {}", e);
-                }
-            }
-
             let now = Utc::now();
             let next_trigger = Self::calculate_next_cleanup_time(now, interval_hours);
             let sleep_duration = (next_trigger - now)
@@ -382,7 +378,7 @@ impl ScheduledTaskManager {
 
             tokio::time::sleep(sleep_duration).await;
 
-            // Run cleanup
+            // Run image cleanup
             match Self::run_image_cleanup(&cache_dir, retention_days).await {
                 Ok(deleted_count) => {
                     if deleted_count > 0 {
@@ -396,10 +392,10 @@ impl ScheduledTaskManager {
                 }
             }
 
-            // Run cleanup for DX World files as well
+            // Run DX World file cleanup
             match super::dx_world::dx_world::cleanup_old_dx_world_files(
                 &std::path::PathBuf::from("data/dx_world"),
-                retention_days
+                retention_days,
             ).await {
                 Ok(deleted_count) => {
                     if deleted_count > 0 {
@@ -473,7 +469,9 @@ mod tests {
 
     #[test]
     fn test_calculate_next_update_time() {
-        // Test at 10:00 - should return 10:17
+        // interval=15 → triggers at :02, :17, :32, :47
+
+        // At 10:00, next trigger is 10:02 (first minute > 0 in the sequence)
         let now = Utc::now()
             .with_hour(10)
             .unwrap()
@@ -482,14 +480,26 @@ mod tests {
             .with_second(0)
             .unwrap();
         let next = ScheduledTaskManager::calculate_next_update_time(now, 15);
+        assert_eq!(next.minute(), 2);
+        assert_eq!(next.hour(), 10);
+
+        // At 10:05, next trigger is 10:17
+        let now = now.with_minute(5).unwrap();
+        let next = ScheduledTaskManager::calculate_next_update_time(now, 15);
         assert_eq!(next.minute(), 17);
         assert_eq!(next.hour(), 10);
 
-        // Test at 10:50 - should return 11:02
+        // At 10:50, all triggers in hour 10 are past → wraps to 11:02
         let now = now.with_minute(50).unwrap();
         let next = ScheduledTaskManager::calculate_next_update_time(now, 15);
         assert_eq!(next.minute(), 2);
         assert_eq!(next.hour(), 11);
+
+        // interval=10 → triggers at :02, :12, :22, :32, :42, :52
+        let now = now.with_minute(25).unwrap();
+        let next = ScheduledTaskManager::calculate_next_update_time(now, 10);
+        assert_eq!(next.minute(), 32);
+        assert_eq!(next.hour(), 10);
     }
 
     #[test]

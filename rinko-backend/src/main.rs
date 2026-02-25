@@ -1,5 +1,6 @@
 use rinko_backend::config;
 use rinko_backend::service;
+use rinko_backend::module::news;
 use rinko_backend::module::sat::SatelliteManager;
 use rinko_backend::module::scheduled::{ScheduledTaskManager, ScheduledTaskConfig};
 
@@ -22,6 +23,10 @@ async fn main() -> Result<()> {
         &config.log_level,
     );
 
+    // Initialise the global news module (must happen before any module calls news::report).
+    let news_manager = news::NewsManager::init();
+    tokio::spawn(news_manager.run());
+
     tracing::info!("Rinko Backend starting...");
     tracing::info!("Server will listen on {}", config.server_address());
 
@@ -29,8 +34,13 @@ async fn main() -> Result<()> {
     tracing::info!("Initializing satellite manager (V2)...");
     let cache_dir = "data";
     let update_interval_minutes = 10; // Update every 10 minutes
+    let asrtu_api_url = config.asrtu_api_url.clone();
     
-    let satellite_manager = SatelliteManager::new(cache_dir, update_interval_minutes as i64).await?;
+    let satellite_manager = SatelliteManager::new(
+        cache_dir,
+        update_interval_minutes as i64,
+        asrtu_api_url,
+    ).await?;
     
     // Initialize satellite manager (load cache and configuration)
     satellite_manager.initialize().await?;
@@ -59,11 +69,26 @@ async fn main() -> Result<()> {
 
     tracing::info!("gRPC server starting on {}", server_addr);
 
-    // Start gRPC server
-    Server::builder()
-        .add_service(BotBackendServer::new(bot_service))
-        .serve(server_addr)
-        .await?;
+    // B-3: use tokio::select! so Ctrl-C triggers graceful shutdown even if the
+    // gRPC server is still listening.  This gives scheduled tasks a chance to
+    // finish in-flight work (e.g. flush amsat_cache.json) before exit.
+    tokio::select! {
+        result = Server::builder()
+            .add_service(BotBackendServer::new(bot_service))
+            .serve(server_addr)
+        => {
+            if let Err(e) = result {
+                tracing::error!("gRPC server error: {}", e);
+            }
+        }
+        _ = tokio::signal::ctrl_c() => {
+            tracing::info!("Shutdown signal received");
+        }
+    }
+
+    // Abort all background tasks cleanly.
+    task_manager.shutdown().await;
+    tracing::info!("Rinko Backend stopped.");
 
     Ok(())
 }

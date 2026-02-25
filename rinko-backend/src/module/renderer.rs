@@ -3,7 +3,7 @@
 ///! Generate images from satellite data with transponder information
 
 use super::sat::manager::{AmsatSearchResult, SatelliteManager};
-use super::sat::types::{ReportStatus, SatelliteDataBlock};
+use super::sat::types::{AmsatReport, ReportStatus, SatelliteDataBlock};
 use super::sat::amsat_types::AmsatEntry;
 use super::lotw::types::{LotwQueueSnapshot, LotwQueueRow};
 use super::qo100::types::{Qo100Snapshot, Qo100Spot};
@@ -17,6 +17,7 @@ use fontdb::Database;
 const SAT_SVG_TEMPLATE: &str = "resources/sat_template.svg";
 const LOTW_SVG_TEMPLATE: &str = "resources/lotw_template.svg";
 const QO100_SVG_TEMPLATE: &str = "resources/qo100_template.svg";
+const ASRTU_PRIORITY_CALLSIGN: &str = "BJ1CR";
 
 /// Map time difference to color gradient
 fn map_time_to_color(target_time: &str, now_utc: &DateTime<Utc>, min_hours: f64, max_hours: f64) -> Result<String> {
@@ -319,18 +320,16 @@ impl SatelliteRenderer {
             Self::X_TIME, *current_y + Self::HEADER_HEIGHT / 2.0,
         ));
         *current_y += Self::HEADER_HEIGHT;
+
+        let selected_reports = Self::select_reports_for_render(data_blocks);
         
         // Data rows
-        let mut row_count = 0;
-        'outer: for data_block in data_blocks {
-            for report in &data_block.reports {
-                if row_count >= Self::MAX_REPORTS_PER_SATELLITE {
-                    break 'outer;
-                }
-                
+        for report in selected_reports {
+                let row_y = *current_y;
                 let y_pos = *current_y + Self::ROW_HEIGHT / 2.0;
                 let report_color = ReportStatus::string_to_color_hex(&report.report);
                 let report_text = ReportStatus::from_string(&report.report).to_string();
+                let is_asrtu_priority = report.callsign.eq_ignore_ascii_case(ASRTU_PRIORITY_CALLSIGN);
                 
                 let report_time = DateTime::parse_from_rfc3339(&report.reported_time)
                     .unwrap_or_else(|_| Utc::now().into());
@@ -341,6 +340,7 @@ impl SatelliteRenderer {
                 
                 section.push_str(&format!(
                     r##"<g class="data-row">
+   {}
    <text x="{}" y="{}" class="table-text">{}</text>
    <text x="{}" y="{}" class="table-text">{}</text>
    <rect x="{}" y="{}" width="{}" height="{}" fill="{}" rx="1" />
@@ -349,6 +349,15 @@ impl SatelliteRenderer {
    <text x="{}" y="{}" class="table-text">{} ({}h ago)</text>
 </g>
 "##,
+                    if is_asrtu_priority {
+                        format!(
+                            "<rect x=\"0\" y=\"{}\" width=\"100%\" height=\"{}\" fill=\"rgb(181, 66, 243)\" fill-opacity=\"0.10\" />",
+                            row_y,
+                            Self::ROW_HEIGHT
+                        )
+                    } else {
+                        String::new()
+                    },
                     Self::X_CALLSIGN, y_pos, Self::escape_xml(&report.callsign),
                     Self::X_GRIDS, y_pos, Self::escape_xml(&report.grid_square),
                     Self::X_REPORT, y_pos - Self::COLOR_BLOCK_HEIGHT / 2.0, Self::COLOR_BLOCK_WIDTH, Self::COLOR_BLOCK_HEIGHT, report_color,
@@ -358,11 +367,41 @@ impl SatelliteRenderer {
                 ));
                 
                 *current_y += Self::ROW_HEIGHT;
-                row_count += 1;
-            }
         }
         
         Ok(section)
+    }
+
+    fn select_reports_for_render<'a>(data_blocks: &'a [SatelliteDataBlock]) -> Vec<&'a AmsatReport> {
+        let all_reports: Vec<&AmsatReport> = data_blocks
+            .iter()
+            .flat_map(|block| block.reports.iter())
+            .collect();
+
+        if all_reports.len() <= Self::MAX_REPORTS_PER_SATELLITE {
+            return all_reports;
+        }
+
+        let mut selected: Vec<&AmsatReport> = all_reports
+            .iter()
+            .take(Self::MAX_REPORTS_PER_SATELLITE)
+            .copied()
+            .collect();
+
+        let has_priority = selected
+            .iter()
+            .any(|report| report.callsign.eq_ignore_ascii_case(ASRTU_PRIORITY_CALLSIGN));
+
+        if !has_priority
+            && let Some(priority_report) = all_reports
+                .iter()
+                .find(|report| report.callsign.eq_ignore_ascii_case(ASRTU_PRIORITY_CALLSIGN))
+        {
+            selected.pop();
+            selected.push(*priority_report);
+        }
+
+        selected
     }
     
     /// Generate footer
