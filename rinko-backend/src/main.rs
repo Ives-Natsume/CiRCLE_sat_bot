@@ -1,12 +1,12 @@
 use rinko_backend::config;
 use rinko_backend::service;
 use rinko_backend::module::news;
-use rinko_backend::module::sat::SatelliteManager;
+use rinko_backend::module::sat_rev::SatManager;
 use rinko_backend::module::scheduled::{ScheduledTaskManager, ScheduledTaskConfig};
 
 use anyhow::Result;
 use tonic::transport::Server;
-
+use std::sync::Arc;
 use rinko_common::proto::bot_backend_server::BotBackendServer;
 use service::BotBackendService;
 
@@ -36,15 +36,7 @@ async fn main() -> Result<()> {
     let update_interval_minutes = 10; // Update every 10 minutes
     let asrtu_api_url = config.asrtu_api_url.clone();
     
-    let satellite_manager = SatelliteManager::new(
-        cache_dir,
-        update_interval_minutes as i64,
-        asrtu_api_url,
-    ).await?;
-    
-    // Initialize satellite manager (load cache and configuration)
-    satellite_manager.initialize().await?;
-    tracing::info!("Satellite manager (V2) initialized successfully");
+    let satellite_manager = Arc::new(SatManager::init().await);
     
     // Configure and start scheduled tasks
     let task_config = ScheduledTaskConfig {

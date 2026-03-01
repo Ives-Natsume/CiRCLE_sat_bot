@@ -2,9 +2,10 @@
 ///!
 ///! Generate images from satellite data with transponder information
 
-use super::sat::manager::{AmsatSearchResult, SatelliteManager};
-use super::sat::types::{AmsatReport, ReportStatus, SatelliteDataBlock};
-use super::sat::amsat_types::AmsatEntry;
+// use super::sat::manager::{AmsatSearchResult, SatelliteManager};
+// use super::sat::types::{AmsatReport, ReportStatus, SatelliteDataBlock};
+// use super::sat::amsat_types::AmsatEntry;
+use super::sat_rev::types::{AmsatEntry, ReportStatus, AmsatReport, SatelliteDataBlock};
 use super::lotw::types::{LotwQueueSnapshot, LotwQueueRow};
 use super::qo100::types::{Qo100Snapshot, Qo100Spot};
 use anyhow::{Context, Result};
@@ -90,14 +91,13 @@ impl SatelliteRenderer {
     /// Render AMSAT search results to image (new dual-store API)
     pub async fn render_amsat_results(
         &self,
-        results: &[AmsatSearchResult],
-        manager: &SatelliteManager,
+        results: Vec<&AmsatEntry>,
     ) -> Result<PathBuf> {
         tokio::fs::create_dir_all(&self.output_dir)
             .await
             .context("Failed to create output directory")?;
 
-        let filename = self.generate_amsat_filename(results);
+        let filename = self.generate_amsat_filename(&results);
         let output_path = self.output_dir.join(&filename);
 
         if output_path.exists() {
@@ -105,7 +105,7 @@ impl SatelliteRenderer {
             return Ok(output_path);
         }
 
-        let svg_content = self.generate_amsat_svg(results, manager).await?;
+        let svg_content = self.generate_amsat_svg(results).await?;
         render_svg_to_png(&svg_content, &output_path).await?;
 
         tracing::info!("Generated satellite status image: {:?}", output_path);
@@ -113,7 +113,7 @@ impl SatelliteRenderer {
     }
 
     /// Generate filename for AMSAT results
-    fn generate_amsat_filename(&self, results: &[AmsatSearchResult]) -> String {
+    fn generate_amsat_filename(&self, results: &Vec<&AmsatEntry>) -> String {
         let now = chrono::Utc::now();
         let minute = (now.minute() / 15) * 15;
         let floored = now
@@ -129,7 +129,7 @@ impl SatelliteRenderer {
         let names: Vec<String> = results
             .iter()
             .take(5)
-            .map(|r| Self::normalize_sat_name(&r.entry.api_name))
+            .map(|r| Self::normalize_sat_name(&r.api_name))
             .collect();
 
         let name_part = if names.is_empty() {
@@ -146,8 +146,7 @@ impl SatelliteRenderer {
     /// Generate SVG for AMSAT results
     async fn generate_amsat_svg(
         &self,
-        results: &[AmsatSearchResult],
-        manager: &SatelliteManager,
+        results: Vec<&AmsatEntry>,
     ) -> Result<String> {
         let mut current_y = Self::TOP_PADDING;
         let mut content = String::new();
@@ -160,8 +159,7 @@ impl SatelliteRenderer {
             current_y = 120.0;
         } else {
             for result in results {
-                let metadata = manager.lookup_metadata(&result.entry);
-                let block = self.generate_amsat_block(&result.entry, metadata.as_ref(), &mut current_y, &now_utc)?;
+                let block = self.generate_amsat_block(&result, &mut current_y, &now_utc)?;
                 content.push_str(&block);
             }
         }
@@ -183,18 +181,17 @@ impl SatelliteRenderer {
     fn generate_amsat_block(
         &self,
         entry: &AmsatEntry,
-        metadata: Option<&super::sat::manager::TransponderMetadata>,
         current_y: &mut f32,
         now_utc: &DateTime<Utc>,
     ) -> Result<String> {
         let mut block = String::new();
 
         // Title: API name (+ NORAD ID if known from metadata)
-        let title = if let Some(meta) = metadata {
-            format!("{} (NORAD {})", entry.api_name, meta.norad_id)
-        } else {
-            format!("{} (NORAD {})", entry.api_name, "Unknown")
-        };
+        let norad_id = entry.transponder_info.as_ref()
+            .and_then(|infos| infos.first())
+            .and_then(|meta| Some(meta.norad_id))
+            .map_or("Unknown".to_string(), |id| id.to_string());
+        let title = format!("{} (NORAD {})", entry.api_name, norad_id);
         block.push_str(&format!(
             r#"<text x="{}" y="{}" class="satellite-title">{}</text>"#,
             Self::X_CALLSIGN,
@@ -205,14 +202,12 @@ impl SatelliteRenderer {
         *current_y += 10.0 + Self::BLOCK_TITLE_HEIGHT / 2.0; // Extra spacing after title
 
         // Transponder info from metadata (if available)
-        if let Some(meta) = metadata {
+        if let Some(meta) = entry.transponder_info.as_ref().and_then(|infos| infos.first()) {
             block.push_str(&format!(
-                r#"<text x="{}" y="{}" class="table-text" style="font-size:16px;fill:#666;">↑{} ↓{} | {}</text>"#,
+                r#"<text x="{}" y="{}" class="table-text" style="font-size:16px;fill:#666;">{}</text>"#,
                 Self::X_CALLSIGN,
                 *current_y + Self::TRANSPONDER_INFO_HEIGHT / 2.0,
-                Self::escape_xml(&meta.uplink),
-                Self::escape_xml(&meta.downlink),
-                Self::escape_xml(&meta.mode)
+                Self::escape_xml(&meta.formatted_transponder_info())
             ));
             block.push('\n');
             *current_y += 10.0 + Self::TRANSPONDER_INFO_HEIGHT / 2.0;

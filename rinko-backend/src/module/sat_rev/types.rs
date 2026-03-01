@@ -301,3 +301,26 @@ pub struct TransponderInfo {
     #[serde(default, deserialize_with = "csv_empty_string_as_none")]
     pub satnogs_id: Option<String>,
 }
+
+impl TransponderInfo {
+    /// Get uplink/downlink info as a formatted string (e.g. "↑145.990 MHz / ↓437.800 MHz / 9k2 GMSK FM")
+    pub fn formatted_transponder_info(&self) -> String {
+        let mut parts = Vec::new();
+        if let Some(ref uplink) = self.uplink_freq {
+            parts.push(format!("↑{}", uplink));
+        } else {
+            parts.push("↑N/A".to_string());
+        }
+        if let Some(ref downlink) = self.downlink_freq {
+            parts.push(format!("↓{}", downlink));
+        } else {
+            parts.push("↓N/A".to_string());
+        }
+        if let Some(ref mode) = self.mode {
+            parts.push(mode.clone());
+        } else {
+            parts.push("Mode N/A".to_string());
+        }
+        parts.join(" | ")
+    }
+}

@@ -5,21 +5,22 @@ use anyhow::Result;
 use std::sync::Arc;
 
 use crate::config::CONFIG;
-use super::sat::SatelliteManager;
+use super::sat_rev::SatManager;
+use super::sat_rev::CACHE_PATH;
 use super::lotw::LotwUpdater;
 use super::qo100::Qo100Updater;
 use super::renderer::SatelliteRenderer;
 
 /// Message handler with satellite manager
 pub struct MessageHandler {
-    satellite_manager: Arc<SatelliteManager>,
+    satellite_manager: Arc<SatManager>,
     lotw_updater: Arc<LotwUpdater>,
     qo100_updater: Arc<Qo100Updater>,
 }
 
 impl MessageHandler {
     /// Create a new message handler
-    pub fn new(satellite_manager: Arc<SatelliteManager>, lotw_updater: Arc<LotwUpdater>, qo100_updater: Arc<Qo100Updater>) -> Self {
+    pub fn new(satellite_manager: Arc<SatManager>, lotw_updater: Arc<LotwUpdater>, qo100_updater: Arc<Qo100Updater>) -> Self {
         Self { satellite_manager, lotw_updater, qo100_updater }
     }
     
@@ -68,8 +69,8 @@ impl MessageHandler {
         match command {
             "q" | "query" => self.amsat_query(args).await,
             "dxw" => {
-                let pic_path = "data/image_cache/dxw_latest.png";
-                if std::path::Path::new(pic_path).exists() && is_media_server_running().await {
+                let pic_path = format!("{}/image_cache/dxw_latest.png", CACHE_PATH);
+                if std::path::Path::new(&pic_path).exists() && is_media_server_running().await {
                     Ok(MessageResponse {
                         success: true,
                         message: format!("file:///{}", pic_path.replace("\\", "/")),
@@ -121,7 +122,7 @@ impl MessageHandler {
         }
         
         // Search for AMSAT entries matching the query
-        let search_results = self.satellite_manager.search_amsat_entries(query).await;
+        let search_results = self.satellite_manager.search(query);
         
         if search_results.is_empty() {
             return Ok(MessageResponse {
@@ -133,8 +134,8 @@ impl MessageHandler {
         }
         
         // Try to render as image using renderer
-        let cache_dir = self.satellite_manager.cache_dir();
-        let images_dir = cache_dir.join("image_cache");
+        let cache_dir = CACHE_PATH;
+        let images_dir = format!("{}/image_cache", cache_dir);
 
         // Make sure image cache directory exists
         tokio::fs::create_dir_all(&images_dir).await
@@ -142,7 +143,7 @@ impl MessageHandler {
 
         let renderer = SatelliteRenderer::new(&images_dir);
         
-        match renderer.render_amsat_results(&search_results, &self.satellite_manager).await {
+        match renderer.render_amsat_results(search_results).await {
             Ok(image_path) => {
                 // Return image path
                 let path_str = image_path.to_string_lossy().to_string();

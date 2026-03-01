@@ -9,7 +9,7 @@ use chrono::Utc;
 use std::collections::HashMap;
 
 #[allow(dead_code)]
-const CACHE_PATH: &str = "data";
+pub const CACHE_PATH: &str = "data";
 #[allow(dead_code)]
 const UPDATE_INTERVAL_SECONDS: u64 = 15 * 60; // 15 minutes
 const REPORT_FETCH_HOURS: u64 = 24;
@@ -115,6 +115,83 @@ impl SatManager {
         );
 
         manager
+    }
+
+    async fn scrape_satellite_list(&mut self) -> Result<()> {
+        let scraper = SatelliteScraper::new();
+        if let Err(e) = scraper.scrape_satellite_list().await {
+            tracing::error!("Failed to scrape satellite list: {:?}", e);
+            report_internal(
+                "sat_rev",
+                "Failed to scrape satellite list",
+                &format!("{:?}", e),
+                NewsUrgency::High,
+            );
+        }
+
+        Ok(())
+    }
+
+
+    /// Update `frequency_db` with the latest CSV data
+    pub async fn update_frequency_db(&mut self) -> Result<()> {
+        let csv_content = match fetch_satellite_metadata().await {
+            Ok(_) => {
+                tracing::debug!("Successfully fetched satellite metadata");
+                match tokio::fs::read_to_string(METADATA_CACHE_PATH).await {
+                    Ok(content) => content,
+                    Err(e) => {
+                        tracing::error!("Failed to read satellite metadata cache: {:?}", e);
+                        String::new()
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::error!("Failed to fetch satellite metadata: {:?}", e);
+                // Try local cache as fallback
+                tokio::fs::read_to_string(METADATA_CACHE_PATH)
+                    .await
+                    .unwrap_or_default()
+            }
+        };
+
+        if let Err(e) = self.parse_csv_data(&csv_content) {
+            tracing::error!("Failed to parse satellite metadata CSV: {:?}", e);
+        }
+
+        Ok(())
+    }
+
+    /// Update AMSAT data
+    /// includes scraping satellite list, frequency db update and fetching latest reports
+    /// executed in high frequency
+    pub async fn update_satellite_data(&mut self) -> Result<()> {
+        // Scrape latest satellite list
+        self.scrape_satellite_list().await?;
+
+        // Update frequency DB with latest CSV data
+        self.update_frequency_db().await?;
+
+        // Build entries
+        let sat_list = self.load_satellite_list_cache().await.unwrap_or_else(|| {
+            tracing::warn!("No satellite list cache available");
+            SatelliteList { satellites: Vec::new() }
+        });
+
+        if !sat_list.satellites.is_empty() {
+            self.build_entries(&sat_list);
+        }
+
+        self.fetch_all_reports().await;
+
+        tracing::info!(
+            "Satellite data updated: {} NORAD-mapped entries, {} unmapped, {} transponder records",
+            self.satellite_map.values().map(|v| v.len()).sum::<usize>(),
+            self.amsat_list.len(),
+            self.frequency_db.len(),
+        );
+
+        Ok(())
     }
 
     // ─── CSV parsing ─────────────────────────────────────────────────────
@@ -475,6 +552,8 @@ impl SatManager {
             .chain(self.amsat_list.iter())
             .collect()
     }
+
+    // TODO: image cleanup
 }
 
 #[cfg(test)]

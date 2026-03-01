@@ -5,7 +5,7 @@
 ///! - Image cache cleanup (daily)
 ///! - Future tasks can be added here
 
-use super::sat::{SatelliteManager, cleanup_old_images};
+use super::sat_rev::SatManager;
 use super::dx_world::dx_world::DxWorldScraper;
 use super::lotw::LotwUpdater;
 use super::qo100::Qo100Updater;
@@ -56,7 +56,7 @@ impl Default for ScheduledTaskConfig {
 /// Scheduled task manager
 pub struct ScheduledTaskManager {
     config: ScheduledTaskConfig,
-    satellite_manager: Arc<SatelliteManager>,
+    satellite_manager: Arc<SatManager>,
     lotw_updater: Arc<LotwUpdater>,
     qo100_updater: Arc<Qo100Updater>,
     task_handles: Vec<JoinHandle<()>>,
@@ -64,7 +64,7 @@ pub struct ScheduledTaskManager {
 
 impl ScheduledTaskManager {
     /// Create a new scheduled task manager
-    pub fn new(config: ScheduledTaskConfig, satellite_manager: Arc<SatelliteManager>) -> Self {
+    pub fn new(config: ScheduledTaskConfig, satellite_manager: Arc<SatManager>) -> Self {
         Self {
             config,
             satellite_manager,
@@ -215,7 +215,7 @@ impl ScheduledTaskManager {
     }
 
     /// Satellite update loop
-    async fn satellite_update_loop(manager: Arc<SatelliteManager>, interval_minutes: u64) {
+    async fn satellite_update_loop(manager: Arc<SatManager>, interval_minutes: u64) {
         loop {
             let now = Utc::now();
             let next_trigger = Self::calculate_next_update_time(now, interval_minutes);
@@ -318,7 +318,7 @@ impl ScheduledTaskManager {
     }
 
     /// Run a single satellite update
-    async fn run_satellite_update(manager: &Arc<SatelliteManager>) -> anyhow::Result<()> {
+    async fn run_satellite_update(manager: &Arc<SatManager>) -> anyhow::Result<()> {
         let timeout_duration = Duration::from_secs(300); // 5 minutes
         
         match tokio::time::timeout(timeout_duration, manager.update_all_satellites()).await {

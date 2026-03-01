@@ -18,7 +18,7 @@ use rinko_common::proto::{
 use rinko_common::Platform;
 
 use crate::module::handler::MessageHandler;
-use crate::module::sat::SatelliteManager;
+use crate::module::sat_rev::SatManager;
 use crate::module::lotw::LotwUpdater;
 use crate::module::qo100::Qo100Updater;
 
@@ -39,7 +39,7 @@ pub struct BotBackendService {
 }
 
 impl BotBackendService {
-    pub fn new(satellite_manager: Arc<SatelliteManager>, lotw_updater: Arc<LotwUpdater>, qo100_updater: Arc<Qo100Updater>) -> Self {
+    pub fn new(satellite_manager: Arc<SatManager>, lotw_updater: Arc<LotwUpdater>, qo100_updater: Arc<Qo100Updater>) -> Self {
         let message_handler = Arc::new(MessageHandler::new(satellite_manager, lotw_updater, qo100_updater));
         
         Self {
