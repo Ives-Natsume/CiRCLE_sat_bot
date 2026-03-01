@@ -459,7 +459,7 @@ impl LotwRenderer {
             .await
             .context("Failed to create output directory")?;
 
-        let filename = Self::output_filename(snapshot);
+        let filename = Self::generate_lotw_filename(snapshot);
         let output_path = self.output_dir.join(&filename);
 
         // Stable symlink / latest convenience path
@@ -487,7 +487,7 @@ impl LotwRenderer {
 
     // ── private helpers ──────────────────────────────────────────────────────
 
-    fn output_filename(snapshot: &LotwQueueSnapshot) -> String {
+    fn generate_lotw_filename(snapshot: &LotwQueueSnapshot) -> String {
         let ts = snapshot.fetched_at.format("%Y%m%d_%H%M").to_string();
         format!("lotw_{}.png", ts)
     }
@@ -649,7 +649,7 @@ impl Qo100Renderer {
             .await
             .context("Failed to create output directory")?;
 
-        let filename = Self::output_filename(snapshot);
+        let filename = Self::generate_qo100_filename(snapshot);
         let output_path = self.output_dir.join(&filename);
 
         let latest_path = self.output_dir.join("qo100_latest.png");
@@ -673,7 +673,7 @@ impl Qo100Renderer {
         Ok(latest_path)
     }
 
-    fn output_filename(snapshot: &Qo100Snapshot) -> String {
+    fn generate_qo100_filename(snapshot: &Qo100Snapshot) -> String {
         let ts = snapshot.fetched_at.format("%Y%m%d_%H%M").to_string();
         format!("qo100_{}.png", ts)
     }

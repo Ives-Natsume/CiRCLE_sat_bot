@@ -2,11 +2,12 @@ use rinko_backend::config;
 use rinko_backend::service;
 use rinko_backend::module::news;
 use rinko_backend::module::sat_rev::SatManager;
-use rinko_backend::module::scheduled::{ScheduledTaskManager, ScheduledTaskConfig};
+use rinko_backend::module::scheduled::ScheduledTaskManager;
 
 use anyhow::Result;
 use tonic::transport::Server;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 use rinko_common::proto::bot_backend_server::BotBackendServer;
 use service::BotBackendService;
 
@@ -32,24 +33,10 @@ async fn main() -> Result<()> {
 
     // Initialize satellite manager V2
     tracing::info!("Initializing satellite manager (V2)...");
-    let cache_dir = "data";
-    let update_interval_minutes = 10; // Update every 10 minutes
-    let asrtu_api_url = config.asrtu_api_url.clone();
-    
-    let satellite_manager = Arc::new(SatManager::init().await);
-    
+    let satellite_manager = Arc::new(RwLock::new(SatManager::init().await));
+
     // Configure and start scheduled tasks
-    let task_config = ScheduledTaskConfig {
-        satellite_update_interval_minutes: update_interval_minutes,
-        lotw_update_interval_minutes: 60, // Update LoTW status every hour
-        qo100_update_interval_minutes: 10, // Update QO-100 cluster every 10 minutes
-        image_cleanup_interval_hours: 24, // Clean images daily
-        image_retention_days: 1, // Keep images for 1 day
-        cache_dir: cache_dir.to_string(),
-        perform_initial_update: true, // Perform initial update immediately
-    };
-    
-    let mut task_manager = ScheduledTaskManager::new(task_config, satellite_manager.clone());
+    let mut task_manager = ScheduledTaskManager::new(satellite_manager.clone());
     task_manager.start_all().await?;
     tracing::info!("All scheduled tasks started successfully");
 

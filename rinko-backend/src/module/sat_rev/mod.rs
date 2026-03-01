@@ -5,4 +5,3 @@ pub mod manager;
 
 // reexpose SatManager
 pub use manager::SatManager;
-pub use manager::CACHE_PATH;

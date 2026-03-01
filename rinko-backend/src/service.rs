@@ -39,7 +39,7 @@ pub struct BotBackendService {
 }
 
 impl BotBackendService {
-    pub fn new(satellite_manager: Arc<SatManager>, lotw_updater: Arc<LotwUpdater>, qo100_updater: Arc<Qo100Updater>) -> Self {
+    pub fn new(satellite_manager: Arc<RwLock<SatManager>>, lotw_updater: Arc<LotwUpdater>, qo100_updater: Arc<Qo100Updater>) -> Self {
         let message_handler = Arc::new(MessageHandler::new(satellite_manager, lotw_updater, qo100_updater));
         
         Self {

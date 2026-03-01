@@ -3,24 +3,25 @@ use rinko_common::proto::{UnifiedMessage, MessageResponse, ContentType};
 use regex::Regex;
 use anyhow::Result;
 use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use crate::config::CONFIG;
+use super::CACHE_PATH;
 use super::sat_rev::SatManager;
-use super::sat_rev::CACHE_PATH;
 use super::lotw::LotwUpdater;
 use super::qo100::Qo100Updater;
 use super::renderer::SatelliteRenderer;
 
 /// Message handler with satellite manager
 pub struct MessageHandler {
-    satellite_manager: Arc<SatManager>,
+    satellite_manager: Arc<RwLock<SatManager>>,
     lotw_updater: Arc<LotwUpdater>,
     qo100_updater: Arc<Qo100Updater>,
 }
 
 impl MessageHandler {
     /// Create a new message handler
-    pub fn new(satellite_manager: Arc<SatManager>, lotw_updater: Arc<LotwUpdater>, qo100_updater: Arc<Qo100Updater>) -> Self {
+    pub fn new(satellite_manager: Arc<RwLock<SatManager>>, lotw_updater: Arc<LotwUpdater>, qo100_updater: Arc<Qo100Updater>) -> Self {
         Self { satellite_manager, lotw_updater, qo100_updater }
     }
     
@@ -122,7 +123,8 @@ impl MessageHandler {
         }
         
         // Search for AMSAT entries matching the query
-        let search_results = self.satellite_manager.search(query);
+        let mgr = self.satellite_manager.read().await;
+        let search_results = mgr.search(query);
         
         if search_results.is_empty() {
             return Ok(MessageResponse {

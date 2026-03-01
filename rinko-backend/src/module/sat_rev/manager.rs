@@ -1,4 +1,4 @@
-use crate::module::news::{NewsUrgency, report_internal};
+use crate::module::{IMAGE_CACHE_PATH, news::{NewsUrgency, report_internal}};
 use super::{
     amsat,
     api_client::*,
@@ -8,8 +8,6 @@ use anyhow::Result;
 use chrono::Utc;
 use std::collections::HashMap;
 
-#[allow(dead_code)]
-pub const CACHE_PATH: &str = "data";
 #[allow(dead_code)]
 const UPDATE_INTERVAL_SECONDS: u64 = 15 * 60; // 15 minutes
 const REPORT_FETCH_HOURS: u64 = 24;
@@ -552,8 +550,6 @@ impl SatManager {
             .chain(self.amsat_list.iter())
             .collect()
     }
-
-    // TODO: image cleanup
 }
 
 #[cfg(test)]

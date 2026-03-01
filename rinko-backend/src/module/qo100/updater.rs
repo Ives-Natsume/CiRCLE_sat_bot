@@ -12,9 +12,9 @@ use tokio::sync::RwLock;
 use super::parser::parse_qo100_json;
 use super::types::Qo100Snapshot;
 use crate::module::renderer::Qo100Renderer;
+use crate::module::IMAGE_CACHE_PATH;
 
 const QO100_CLUSTER_URL: &str = "https://qo100dx.club/cluster/";
-const DEFAULT_IMAGE_DIR: &str = "data/image_cache";
 
 /// Shared QO-100 updater – owns the HTTP client, renderer, and in-memory cache.
 pub struct Qo100Updater {
@@ -26,7 +26,7 @@ pub struct Qo100Updater {
 
 impl Qo100Updater {
     pub fn new(image_dir: Option<PathBuf>) -> Self {
-        let image_dir = image_dir.unwrap_or_else(|| PathBuf::from(DEFAULT_IMAGE_DIR));
+        let image_dir = image_dir.unwrap_or_else(|| PathBuf::from(IMAGE_CACHE_PATH));
         Self {
             client: Client::builder()
                 .timeout(std::time::Duration::from_secs(30))
