@@ -26,6 +26,8 @@ pub struct QQConfig {
 pub struct TelegramConfig {
     pub token: String,
     pub chat_id: i64,
+    #[serde(default)]
+    pub media_base_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

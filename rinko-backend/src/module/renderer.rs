@@ -18,7 +18,6 @@ use fontdb::Database;
 const SAT_SVG_TEMPLATE: &str = "resources/sat_template.svg";
 const LOTW_SVG_TEMPLATE: &str = "resources/lotw_template.svg";
 const QO100_SVG_TEMPLATE: &str = "resources/qo100_template.svg";
-const ASRTU_PRIORITY_CALLSIGN: &str = "BJ1CR";
 
 /// Map time difference to color gradient
 fn map_time_to_color(target_time: &str, now_utc: &DateTime<Utc>, min_hours: f64, max_hours: f64) -> Result<String> {
@@ -70,7 +69,6 @@ impl SatelliteRenderer {
     const TOP_PADDING: f32 = 20.0;
     const FOOTER_HEIGHT: f32 = 32.0;
     const MAX_REPORTS_PER_SATELLITE: usize = 5;
-    const TRANSPONDER_INFO_HEIGHT: f32 = 24.0;
 
     const X_CALLSIGN: f32 = 20.0;
     const X_GRIDS: f32 = 170.0;
@@ -186,40 +184,16 @@ impl SatelliteRenderer {
     ) -> Result<String> {
         let mut block = String::new();
 
-        // Title: API name (+ NORAD ID if known from metadata)
-        let norad_id = entry.transponder_info.as_ref()
-            .and_then(|infos| infos.first())
-            .and_then(|meta| Some(meta.norad_id))
-            .map_or("Unknown".to_string(), |id| id.to_string());
-        let title = format!("{} (NORAD {})", entry.api_name, norad_id);
+        // Title: API name
+        let title = &entry.api_name;
         block.push_str(&format!(
             r#"<text x="{}" y="{}" class="satellite-title">{}</text>"#,
             Self::X_CALLSIGN,
             *current_y + Self::BLOCK_TITLE_HEIGHT / 2.0,
-            Self::escape_xml(&title)
+            Self::escape_xml(title)
         ));
         block.push('\n');
-        *current_y += 10.0 + Self::BLOCK_TITLE_HEIGHT / 2.0; // Extra spacing after title
-
-        // Transponder info from metadata (if available)
-        if let Some(meta) = entry.transponder_info.as_ref().and_then(|infos| infos.first()) {
-            block.push_str(&format!(
-                r#"<text x="{}" y="{}" class="table-text" style="font-size:16px;fill:#666;">{}</text>"#,
-                Self::X_CALLSIGN,
-                *current_y + Self::TRANSPONDER_INFO_HEIGHT / 2.0,
-                Self::escape_xml(&meta.formatted_transponder_info())
-            ));
-            block.push('\n');
-            *current_y += 10.0 + Self::TRANSPONDER_INFO_HEIGHT / 2.0;
-        } else {
-            block.push_str(&format!(
-                r#"<text x="{}" y="{}" class="table-text" style="font-size:16px;fill:#666;">No transponder information available.</text>"#,
-                Self::X_CALLSIGN,
-                *current_y + Self::TRANSPONDER_INFO_HEIGHT / 2.0
-            ));
-            block.push('\n');
-            *current_y += 10.0 + Self::TRANSPONDER_INFO_HEIGHT / 2.0;
-        }
+        *current_y += 10.0 + Self::BLOCK_TITLE_HEIGHT / 2.0;
 
         // AMSAT update status
         let (status_class, status_text) = if entry.update_success {
@@ -320,11 +294,9 @@ impl SatelliteRenderer {
         
         // Data rows
         for report in selected_reports {
-                let row_y = *current_y;
                 let y_pos = *current_y + Self::ROW_HEIGHT / 2.0;
                 let report_color = ReportStatus::string_to_color_hex(&report.report);
                 let report_text = ReportStatus::from_string(&report.report).to_string();
-                let is_asrtu_priority = report.callsign.eq_ignore_ascii_case(ASRTU_PRIORITY_CALLSIGN);
                 
                 let report_time = DateTime::parse_from_rfc3339(&report.reported_time)
                     .unwrap_or_else(|_| Utc::now().into());
@@ -335,7 +307,6 @@ impl SatelliteRenderer {
                 
                 section.push_str(&format!(
                     r##"<g class="data-row">
-   {}
    <text x="{}" y="{}" class="table-text">{}</text>
    <text x="{}" y="{}" class="table-text">{}</text>
    <rect x="{}" y="{}" width="{}" height="{}" fill="{}" rx="1" />
@@ -344,15 +315,6 @@ impl SatelliteRenderer {
    <text x="{}" y="{}" class="table-text">{} ({}h ago)</text>
 </g>
 "##,
-                    if is_asrtu_priority {
-                        format!(
-                            "<rect x=\"0\" y=\"{}\" width=\"100%\" height=\"{}\" fill=\"rgb(181, 66, 243)\" fill-opacity=\"0.10\" />",
-                            row_y,
-                            Self::ROW_HEIGHT
-                        )
-                    } else {
-                        String::new()
-                    },
                     Self::X_CALLSIGN, y_pos, Self::escape_xml(&report.callsign),
                     Self::X_GRIDS, y_pos, Self::escape_xml(&report.grid_square),
                     Self::X_REPORT, y_pos - Self::COLOR_BLOCK_HEIGHT / 2.0, Self::COLOR_BLOCK_WIDTH, Self::COLOR_BLOCK_HEIGHT, report_color,
@@ -377,26 +339,10 @@ impl SatelliteRenderer {
             return all_reports;
         }
 
-        let mut selected: Vec<&AmsatReport> = all_reports
-            .iter()
+        all_reports
+            .into_iter()
             .take(Self::MAX_REPORTS_PER_SATELLITE)
-            .copied()
-            .collect();
-
-        let has_priority = selected
-            .iter()
-            .any(|report| report.callsign.eq_ignore_ascii_case(ASRTU_PRIORITY_CALLSIGN));
-
-        if !has_priority
-            && let Some(priority_report) = all_reports
-                .iter()
-                .find(|report| report.callsign.eq_ignore_ascii_case(ASRTU_PRIORITY_CALLSIGN))
-        {
-            selected.pop();
-            selected.push(*priority_report);
-        }
-
-        selected
+            .collect()
     }
     
     /// Generate footer

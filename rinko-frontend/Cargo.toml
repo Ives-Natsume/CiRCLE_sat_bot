@@ -31,3 +31,5 @@ uuid = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
 tokio-stream = { workspace = true }
+teloxide = { version = "0.17.0", features = ["macros"] }
+log = "0.4.29"

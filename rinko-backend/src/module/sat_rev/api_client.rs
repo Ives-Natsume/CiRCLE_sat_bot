@@ -7,8 +7,6 @@ use scraper::{Html, Selector};
 
 const AMSAT_STATUS_URL: &str = "https://www.amsat.org/status/";
 const AMSAT_API_URL: &str = "https://www.amsat.org/status/api/v1/sat_info.php";
-const METADATA_API_URL: &str = "https://raw.githubusercontent.com/palewire/amateur-satellite-database/main/data/amsat-active-frequencies.csv";
-pub const METADATA_CACHE_PATH: &str = "data/satellite_metadata.csv";
 pub const SATELLITE_LIST_CACHE_PATH: &str = "data/satellite_list.toml";
 const MAX_RETRIES: u32 = 3;
 const RETRY_DELAY_SECONDS: u64 = 2;
@@ -159,29 +157,6 @@ pub async fn batch_fetch_satellites(
     results
 }
 
-/// Fetch satellite metadata from metadata API
-pub async fn fetch_satellite_metadata() -> Result<()> {
-    let client = build_client()?;
-    let response = client
-        .get(METADATA_API_URL)
-        .send()
-        .await
-        .context("Failed to send request for satellite metadata")?;
-    
-    let metadata = response
-        .text()
-        .await
-        .context("Failed to read satellite metadata response")?;
-
-    // Cache the metadata to a local file for future use
-    tokio::fs::write(METADATA_CACHE_PATH, metadata)
-        .await
-        .context("Failed to write satellite metadata to cache")
-        .expect("Failed to write satellite metadata to cache");
-
-    Ok(())
-}
-
 /// Satellite scraper - fetches satellite list from AMSAT
 pub struct SatelliteScraper {
     client: Client,
@@ -208,9 +183,6 @@ impl SatelliteScraper {
             list.satellites.push(SatelliteEntry {
                 api_name: name,
                 aliases: Vec::new(),
-                mode: None,
-                tag: None,
-                catalog_number: None,
             });
         }
 
@@ -353,20 +325,11 @@ pub struct SatelliteList {
 pub struct SatelliteEntry {
     pub api_name: String,
     pub aliases: Vec<String>,
-    pub mode: Option<Vec<String>>,
-    pub tag: Option<Vec<String>>,
-    pub catalog_number: Option<String>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[tokio::test]
-    async fn test_fetch_satellite_metadata() {
-        let result = fetch_satellite_metadata().await;
-        assert!(result.is_ok());
-    }
 
     #[tokio::test]
     async fn test_scrape_satellite_list() {

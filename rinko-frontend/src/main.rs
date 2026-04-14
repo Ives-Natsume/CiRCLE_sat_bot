@@ -2,6 +2,7 @@ use rinko_frontend::logging;
 use rinko_frontend::config;
 use rinko_frontend::config::QQConfig;
 use rinko_frontend::backend::BackendConnectionManager;
+use rinko_frontend::frontend::telegram;
 use rinko_frontend::utils::Platform;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -34,7 +35,11 @@ async fn main() -> anyhow::Result<()> {
             tracing::info!("✓ Backend heartbeat task started (interval: {}s)", backend_cfg.heartbeat_interval);
             
             // Start command subscription task
-            manager.clone().start_command_subscription_task(vec![Platform::QQ]);
+            let mut platforms = vec![Platform::QQ];
+            if bot_config.telegram.is_some() {
+                platforms.push(Platform::Telegram);
+            }
+            manager.clone().start_command_subscription_task(platforms);
             tracing::info!("✓ Backend command subscription task started");
             
             Some(manager)
@@ -76,6 +81,20 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!("QQ webhook server starting on port 3110...");
     } else {
         tracing::warn!("No QQ configuration found; running with backend tasks only.");
+    }
+
+    // Initialize Telegram bot
+    if let Some(tg_cfg) = bot_config.telegram.clone() {
+        let backend_for_tg = backend_manager.clone();
+        tokio::spawn(async move {
+            tracing::info!("Starting Telegram bot (long-polling)...");
+            if let Err(e) = telegram::start_telegram_bot(tg_cfg, backend_for_tg).await {
+                tracing::error!("Telegram bot error: {}", e);
+            }
+        });
+        tracing::info!("Telegram bot task spawned.");
+    } else {
+        tracing::info!("No Telegram configuration found.");
     }
 
     // C-4 fix: always wait for the shutdown signal so background tasks (reconnect,

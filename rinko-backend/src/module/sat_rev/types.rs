@@ -2,9 +2,6 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use super::amsat::parse_amsat_name;
 
-/// NORAD ID type (satellite unique identifier)
-pub type NoradId = u32;
-
 /// Satellite report from AMSAT API
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AmsatReport {
@@ -118,33 +115,6 @@ mod tests {
         assert_eq!(ReportStatus::Blue.to_color_hex(), "#4297f3ff");
         assert_eq!(ReportStatus::Red.to_color_hex(), "#ed3f3fff");
     }
-
-    // #[test]
-    // fn test_satellite_info_creation() {
-    //     let sat = SatelliteInfo::new("AO-91");
-    //     assert_eq!(sat.name, "AO-91");
-    //     assert!(sat.is_active);
-    //     assert_eq!(sat.total_reports(), 0);
-    // }
-}
-
-/// Hardware-confirmed repeater state from the ASRTU telemetry API.
-///
-/// This snapshot is stored **separately** from crowd-sourced [`AmsatReport`] observations
-/// so that renderers can present it as a distinct, authoritative data source rather than
-/// mixing it with user-submitted reports.  AMSAT reports are still fetched and displayed
-/// independently for reference.
-///
-/// [`AmsatReport`]: super::types::AmsatReport
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AsrtuTelemetrySnapshot {
-    /// Hardware-confirmed repeater state: `true` when the CTCSS encoder is enabled.
-    pub repeater_on: bool,
-    /// Raw CTCSS enable register value — internal use only, not shown to users.
-    #[serde(rename = "ctcss")]
-    pub ctcss_value: String,
-    /// RFC3339 timestamp at which the telemetry server received this frame.
-    pub observed_at: String,
 }
 
 /// AMSAT entry - the primary unit for user queries and status display
@@ -180,58 +150,27 @@ pub struct AmsatEntry {
     /// Whether AMSAT update was successful
     #[serde(default)]
     pub update_success: bool,
-
-    /// Human-curated mode keywords from TOML (e.g. ["fm"], ["data", "digi", "lin"]).
-    /// Used for keyword search — distinct from the single `mode` parsed from the API name.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub modes: Vec<String>,
-
-    /// Human-curated tags from TOML (e.g. ["leo", "experimental"]).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub tags: Vec<String>,
-
-    /// Frequency metadata for transponders associated with this satellite (if any)
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transponder_info: Option<Vec<TransponderInfo>>,
-
-    /// Direct ASRTU hardware telemetry snapshot.
-    ///
-    /// Stored separately from crowd-sourced [`reports`](Self::reports) so that
-    /// renderers can present it as a clearly labelled authoritative data source
-    /// alongside (not instead of) user observations.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub asrtu_telemetry: Option<AsrtuTelemetrySnapshot>,
 }
 
 impl AmsatEntry {
     /// Create a new entry from an AMSAT API name
     pub fn from_api_name(api_name: &str) -> Self {
         let parsed = parse_amsat_name(api_name);
-        let aliases = Vec::new();
 
         Self {
             api_name: api_name.to_string(),
-            aliases,
+            aliases: Vec::new(),
             satellite_base_name: parsed.base_name,
             mode: parsed.mode_hint,
             reports: Vec::new(),
             last_updated: Utc::now(),
             last_fetch_success: None,
             update_success: false,
-            modes: Vec::new(),
-            tags: Vec::new(),
-            transponder_info: None,
-            asrtu_telemetry: None,
         }
     }
 
     /// Get latest status from crowd-sourced AMSAT reports.
-    ///
-    /// ASRTU hardware telemetry is intentionally **not** considered here; it is
-    /// displayed separately by renderers via [`AsrtuTelemetrySnapshot`].  This
-    /// keeps user-submitted observations and hardware data visually distinct.
     pub fn latest_status(&self) -> ReportStatus {
-        // Reports are sorted newest-first (by time block)
         if let Some(first_block) = self.reports.first() {
             if let Some(last_report) = first_block.reports.last() {
                 return ReportStatus::from_string(&last_report.report);
@@ -268,59 +207,5 @@ impl AmsatEntry {
                 }
             })
             .collect()
-    }
-}
-
-/// Deserialize CSV empty fields as `None` instead of `Some("")`.
-fn csv_empty_string_as_none<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let s: Option<String> = Option::deserialize(deserializer)?;
-    Ok(s.filter(|v| !v.is_empty()))
-}
-
-/// Transponder / frequency metadata parsed from the CSV satellite database.
-///
-/// Field renames map the CSV headers (`uplink`, `downlink`, `beacon`) to the
-/// more explicit Rust field names (`uplink_freq`, …).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TransponderInfo {
-    pub name: String,
-    pub norad_id: NoradId,
-    #[serde(rename = "uplink", default, deserialize_with = "csv_empty_string_as_none")]
-    pub uplink_freq: Option<String>,
-    #[serde(rename = "downlink", default, deserialize_with = "csv_empty_string_as_none")]
-    pub downlink_freq: Option<String>,
-    #[serde(rename = "beacon", default, deserialize_with = "csv_empty_string_as_none")]
-    pub beacon_freq: Option<String>,
-    #[serde(default, deserialize_with = "csv_empty_string_as_none")]
-    pub mode: Option<String>,
-    #[serde(default, deserialize_with = "csv_empty_string_as_none")]
-    pub callsign: Option<String>,
-    #[serde(default, deserialize_with = "csv_empty_string_as_none")]
-    pub satnogs_id: Option<String>,
-}
-
-impl TransponderInfo {
-    /// Get uplink/downlink info as a formatted string (e.g. "↑145.990 MHz / ↓437.800 MHz / 9k2 GMSK FM")
-    pub fn formatted_transponder_info(&self) -> String {
-        let mut parts = Vec::new();
-        if let Some(ref uplink) = self.uplink_freq {
-            parts.push(format!("↑{}", uplink));
-        } else {
-            parts.push("↑N/A".to_string());
-        }
-        if let Some(ref downlink) = self.downlink_freq {
-            parts.push(format!("↓{}", downlink));
-        } else {
-            parts.push("↓N/A".to_string());
-        }
-        if let Some(ref mode) = self.mode {
-            parts.push(mode.clone());
-        } else {
-            parts.push("Mode N/A".to_string());
-        }
-        parts.join(" | ")
     }
 }
