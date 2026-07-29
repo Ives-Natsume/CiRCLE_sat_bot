@@ -1,214 +1,348 @@
-use crate::module::news::{NewsUrgency, report_internal};
+//! Orchestration for the AMSAT pipeline.
+//!
+//! This layer owns no algorithms: parsing lives in [`naming`], identity in
+//! [`super::identity`], state transitions in [`super::registry`], search in
+//! [`query`], and network I/O in [`super::api_client`]. What remains is sequencing,
+//! which keeps the update cycle short enough to read at a glance.
+//!
+//! The previous version duplicated the entire cycle between `init` and
+//! `update_satellite_data` — and ran the scraper twice on startup. Both paths now
+//! funnel through [`SatManager::refresh`], differing only in the fetch window.
+
+use crate::module::news::{report_internal, NewsUrgency};
+
 use super::{
-    amsat,
-    api_client::*,
-    types::*,
+    api_client::{batch_fetch_satellites, SatelliteScraper, SATELLITE_LIST_CACHE_PATH},
+    identity::SatKey,
+    naming,
+    overlay::OverlayProvider,
+    providers::asrtu::AsrtuProvider,
+    query,
+    registry::{DriftReport, SatRegistry, RETENTION_HOURS, RETIRE_AFTER_HOURS},
+    store::RegistryStore,
+    types::{SatRecord, SatelliteList},
 };
 use anyhow::Result;
-use chrono::Utc;
 
-#[allow(dead_code)]
-const UPDATE_INTERVAL_SECONDS: u64 = 15 * 60; // 15 minutes
-const REPORT_FETCH_HOURS: u64 = 24;
+/// Report window for a cold start, when no history is held yet.
+const COLD_START_HOURS: u64 = 24;
+
+/// Report window for scheduled refreshes.
+///
+/// Incremental merging means only recent reports are needed. The old code re-fetched
+/// a full day every cycle purely because it discarded everything each time.
+const INCREMENTAL_HOURS: u64 = 2;
+
+/// Report window used on startup when a snapshot was restored.
+///
+/// Wide enough to cover a realistic downtime, far cheaper than a full cold start.
+const GAP_FILL_HOURS: u64 = 6;
+
+/// Delay between upstream requests, to stay polite to the AMSAT API.
 const BATCH_DELAY_MS: u64 = 200;
 
+/// Owns satellite state and coordinates updates.
 pub struct SatManager {
-    /// All AMSAT entries, keyed by api_name for dedup.
-    pub entries: Vec<AmsatEntry>,
+    registry: SatRegistry,
+    store: RegistryStore,
+    /// ASRTU telemetry source, present only when configured.
+    asrtu: Option<AsrtuProvider>,
 }
 
 impl SatManager {
-    /// Initialise the satellite manager:
+    /// Build a manager, restoring persisted state before contacting upstream.
     ///
-    /// 1. Scrape the satellite name list from the AMSAT website (or load TOML cache).
-    /// 2. Build `AmsatEntry` objects from the satellite list.
-    /// 3. Batch-fetch the latest AMSAT crowd-sourced reports for every entry.
+    /// Restoring first is what removes the cold-start outage: queries can be served
+    /// from the snapshot while the refresh runs, instead of returning nothing for the
+    /// minutes it takes to poll every satellite.
     pub async fn init() -> Self {
+        let store = RegistryStore::new();
+        let restored = store.load().await;
+        let had_history = restored.is_some();
+
+        let asrtu = AsrtuProvider::new(
+            crate::config::CONFIG
+                .get()
+                .and_then(|c| c.asrtu_api_url.as_deref()),
+        );
+        if asrtu.is_some() {
+            tracing::info!("ASRTU telemetry provider enabled");
+        }
+
         let mut manager = Self {
-            entries: Vec::new(),
+            registry: restored.unwrap_or_default(),
+            store,
+            asrtu,
         };
 
-        // ── Step 1: Satellite name list ──────────────────────────────────
-        let scraper = SatelliteScraper::new();
-        if let Err(e) = scraper.scrape_satellite_list().await {
-            tracing::error!("Failed to scrape satellite list: {:?}", e);
-            report_internal(
-                "sat_rev",
-                "Failed to scrape satellite list",
-                &format!("{:?}", e),
-                NewsUrgency::High,
-            );
+        // With history on hand only the gap needs filling; without it, take the long
+        // window so the first render is not sparse.
+        let window = if had_history {
+            COLD_START_HOURS.min(GAP_FILL_HOURS)
+        } else {
+            COLD_START_HOURS
+        };
+
+        if let Err(e) = manager.refresh(window).await {
+            tracing::error!("Initial satellite refresh failed: {:?}", e);
         }
-
-        let sat_list = manager.load_satellite_list_cache().await.unwrap_or_else(|| {
-            tracing::warn!("No satellite list cache available");
-            SatelliteList { satellites: Vec::new() }
-        });
-
-        // ── Step 2: Build AmsatEntry list ────────────────────────────────
-        if !sat_list.satellites.is_empty() {
-            manager.build_entries(&sat_list);
-        }
-
-        // ── Step 3: Batch-fetch AMSAT reports ────────────────────────────
-        manager.fetch_all_reports().await;
 
         tracing::info!(
-            "SatManager initialised: {} entries",
-            manager.entries.len(),
+            "SatManager initialised: {} active record(s) (restored: {})",
+            manager.registry.active().len(),
+            had_history
         );
 
         manager
     }
 
-    async fn scrape_satellite_list(&mut self) -> Result<()> {
-        let scraper = SatelliteScraper::new();
-        if let Err(e) = scraper.scrape_satellite_list().await {
-            tracing::error!("Failed to scrape satellite list: {:?}", e);
-            report_internal(
-                "sat_rev",
-                "Failed to scrape satellite list",
-                &format!("{:?}", e),
-                NewsUrgency::High,
+    /// Scheduled update entry point.
+    pub async fn update_satellite_data(&mut self) -> Result<()> {
+        self.refresh(INCREMENTAL_HOURS).await
+    }
+
+    /// One full cycle: scrape, reconcile, fetch, then enforce retention.
+    ///
+    /// `fetch_hours` is the sole difference between a cold start and a scheduled
+    /// refresh, so both share this path.
+    async fn refresh(&mut self, fetch_hours: u64) -> Result<()> {
+        // ── 1. Observe upstream ──────────────────────────────────────────
+        let labels = self.scrape_labels().await;
+        if labels.is_empty() {
+            // A failed scrape must never empty the registry.
+            tracing::warn!("No satellite labels available; keeping existing records");
+        } else {
+            let drift = self.registry.observe_upstream(&labels);
+            self.report_drift(&drift);
+        }
+
+        // ── 2. Re-apply curated aliases ──────────────────────────────────
+        // After reconciliation, so curated data always survives ingest.
+        self.apply_curated_aliases().await;
+
+        // ── 3. Fetch reports ─────────────────────────────────────────────
+        self.fetch_reports(fetch_hours).await;
+        // ── 4. Poll overlay sources ───────────────────────────────────
+        self.poll_overlays().await;
+        // ── 5. Bounded retention ──────────────────────────────────────
+        // Mandatory companion to incremental updates: nothing else bounds growth
+        // now that the registry is no longer cleared each cycle.
+        let dropped = self.registry.prune(RETENTION_HOURS);
+        let retired = self.registry.retire_stale(RETIRE_AFTER_HOURS);
+        if dropped > 0 || !retired.is_empty() {
+            tracing::info!(
+                "Retention: pruned {} stale bucket(s), retired {} record(s)",
+                dropped,
+                retired.len()
             );
         }
 
-        Ok(())
-    }
-
-    /// Update AMSAT data:
-    /// scrape satellite list, rebuild entries, fetch latest reports.
-    pub async fn update_satellite_data(&mut self) -> Result<()> {
-        self.scrape_satellite_list().await?;
-
-        let sat_list = self.load_satellite_list_cache().await.unwrap_or_else(|| {
-            tracing::warn!("No satellite list cache available");
-            SatelliteList { satellites: Vec::new() }
-        });
-
-        if !sat_list.satellites.is_empty() {
-            self.build_entries(&sat_list);
+        // ── 6. Persist ───────────────────────────────────────────────────
+        // A failed save must not fail the cycle: the in-memory state is still good
+        // and the next cycle will try again.
+        if let Err(e) = self.store.save(&self.registry).await {
+            tracing::warn!("Failed to persist satellite registry: {:?}", e);
         }
 
-        self.fetch_all_reports().await;
-
         tracing::info!(
-            "Satellite data updated: {} entries",
-            self.entries.len(),
+            "Refresh complete: {} active, {} total",
+            self.registry.active().len(),
+            self.registry.len()
         );
 
         Ok(())
     }
 
-    // ─── Entry building ──────────────────────────────────────────────────
+    /// Fetch the upstream label list, falling back to the curated file.
+    async fn scrape_labels(&self) -> Vec<String> {
+        let scraper = SatelliteScraper::new();
 
-    /// Create [`AmsatEntry`] objects from the supplied satellite list.
-    fn build_entries(&mut self, sat_list: &SatelliteList) {
-        self.entries.clear();
-
-        for sat_entry in &sat_list.satellites {
-            let mut entry = AmsatEntry::from_api_name(&sat_entry.api_name);
-
-            // Merge human-edited aliases from the TOML cache
-            for alias in &sat_entry.aliases {
-                if !entry.aliases.contains(alias) {
-                    entry.aliases.push(alias.clone());
-                }
+        match scraper.fetch_labels().await {
+            Ok(labels) if !labels.is_empty() => labels,
+            Ok(_) => {
+                tracing::warn!("Upstream returned an empty satellite list");
+                Vec::new()
             }
-
-            self.entries.push(entry);
+            Err(e) => {
+                tracing::error!("Failed to scrape satellite list: {:?}", e);
+                report_internal(
+                    "sat_rev",
+                    "Failed to scrape satellite list",
+                    &format!("{:?}", e),
+                    NewsUrgency::High,
+                );
+                // Fall back to the curated file so a cold start still works offline.
+                self.load_curated_list()
+                    .await
+                    .map(|list| list.satellites.into_iter().map(|s| s.api_name).collect())
+                    .unwrap_or_default()
+            }
         }
     }
 
-    // ─── AMSAT report fetching ───────────────────────────────────────────
+    /// Apply curated aliases from the TOML file to matching records.
+    async fn apply_curated_aliases(&mut self) {
+        let Some(list) = self.load_curated_list().await else {
+            return;
+        };
 
-    /// Batch-fetch AMSAT crowd-sourced reports for **every** entry and store
-    /// them as hourly `SatelliteDataBlock` buckets.
-    async fn fetch_all_reports(&mut self) {
-        let all_names: Vec<String> = self
-            .entries
-            .iter()
-            .map(|e| e.api_name.clone())
-            .collect();
+        let mut applied = 0usize;
+        let mut unmatched: Vec<String> = Vec::new();
 
-        if all_names.is_empty() {
+        for entry in &list.satellites {
+            if entry.aliases.is_empty() {
+                continue;
+            }
+            let key = SatKey::from_label(&entry.api_name);
+            if self.registry.get(&key).is_some() {
+                self.registry.apply_curated_aliases(&key, &entry.aliases);
+                applied += 1;
+            } else {
+                unmatched.push(entry.api_name.clone());
+            }
+        }
+
+        if applied > 0 {
+            tracing::debug!("Applied curated aliases to {} record(s)", applied);
+        }
+        if !unmatched.is_empty() {
+            // Usually satellites that have left the upstream list — informational.
+            tracing::debug!(
+                "{} curated entry/entries matched no record: {}",
+                unmatched.len(),
+                unmatched.join(", ")
+            );
+        }
+    }
+
+    /// Fetch reports for every active record and merge them incrementally.
+    async fn fetch_reports(&mut self, hours: u64) {
+        let targets = self.registry.fetch_targets();
+        if targets.is_empty() {
             tracing::warn!("No satellites to fetch reports for");
             return;
         }
 
-        tracing::info!("Fetching AMSAT reports for {} satellites…", all_names.len());
+        tracing::info!(
+            "Fetching AMSAT reports for {} satellite(s) over {}h",
+            targets.len(),
+            hours
+        );
 
-        let results =
-            batch_fetch_satellites(&all_names, REPORT_FETCH_HOURS, BATCH_DELAY_MS).await;
+        let results = batch_fetch_satellites(&targets, hours, BATCH_DELAY_MS).await;
 
-        let mut success_count: u32 = 0;
-        let mut fail_count: u32 = 0;
+        let mut ok = 0u32;
+        let mut failed = 0u32;
 
-        for (name, result) in &results {
+        for (label, result) in &results {
+            // Resolve via the registry so a label renamed mid-cycle still lands on
+            // the correct record.
+            let Some(key) = self.registry.key_for_label(label) else {
+                tracing::debug!("Fetched label {label:?} matches no record; ignoring");
+                continue;
+            };
+
             match result {
                 Ok(reports) => {
-                    success_count += 1;
-                    if let Some(entry) = self.find_entry_mut(name) {
-                        entry.reports = Self::bucket_reports(reports);
-                        entry.last_fetch_success = Some(Utc::now());
-                        entry.update_success = true;
-                        entry.last_updated = Utc::now();
-                    }
+                    ok += 1;
+                    self.registry.merge_reports(&key, reports);
                 }
                 Err(e) => {
-                    fail_count += 1;
-                    tracing::warn!("Failed to fetch reports for {}: {}", name, e);
-                    if let Some(entry) = self.find_entry_mut(name) {
-                        entry.update_success = false;
-                        entry.last_updated = Utc::now();
-                    }
+                    failed += 1;
+                    tracing::warn!("Failed to fetch reports for {}: {}", label, e);
+                    self.registry.mark_fetch_failed(&key);
                 }
             }
         }
 
-        tracing::info!(
-            "AMSAT report fetch complete: {} succeeded, {} failed",
-            success_count,
-            fail_count,
-        );
+        tracing::info!("Report fetch complete: {} succeeded, {} failed", ok, failed);
     }
 
-    /// Find a mutable reference to an [`AmsatEntry`] by its `api_name`.
-    fn find_entry_mut(&mut self, api_name: &str) -> Option<&mut AmsatEntry> {
-        self.entries.iter_mut().find(|e| e.api_name == api_name)
+    /// Poll every configured overlay source and attach the results.
+    ///
+    /// Failures are logged and skipped: an overlay is supplementary, so a dead
+    /// external feed must never hold up the AMSAT pipeline.
+    async fn poll_overlays(&mut self) {
+        let Some(provider) = self.asrtu.as_ref() else {
+            return;
+        };
+
+        let source = provider.source();
+        match provider.poll().await {
+            Ok(items) => {
+                for item in items {
+                    let key = item.key();
+                    if self.registry.set_overlay(&key, item.overlay) {
+                        tracing::debug!("Attached {} overlay to {}", source.as_str(), key);
+                    } else {
+                        // The provider is pointing at a satellite we do not have.
+                        // Worth surfacing: this is the failure the old integration
+                        // hid by silently creating an orphan record.
+                        tracing::warn!(
+                            "{} overlay targets unknown satellite {}; ignoring",
+                            source.as_str(),
+                            key
+                        );
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::warn!("{} overlay poll failed: {}", source.as_str(), e);
+            }
+        }
     }
 
-    /// Group a flat list of [`AmsatReport`] into hourly [`SatelliteDataBlock`]s,
-    /// newest block first.
-    fn bucket_reports(reports: &[AmsatReport]) -> Vec<SatelliteDataBlock> {
-        use chrono::DateTime;
-        use std::collections::BTreeMap;
-
-        let mut buckets: BTreeMap<String, Vec<AmsatReport>> = BTreeMap::new();
-
-        for report in reports {
-            let hour_key =
-                if let Ok(dt) = DateTime::parse_from_rfc3339(&report.reported_time) {
-                    dt.format("%Y-%m-%dT%H:00:00Z").to_string()
-                } else {
-                    "unknown".to_string()
-                };
-            buckets.entry(hour_key).or_default().push(report.clone());
+    /// Log drift, alerting only when it looks like an upstream scheme change.
+    fn report_drift(&self, drift: &DriftReport) {
+        if drift.is_quiet() {
+            return;
         }
 
-        // Newest first
-        let mut blocks: Vec<SatelliteDataBlock> = buckets
-            .into_iter()
-            .map(|(time, reports)| SatelliteDataBlock { time, reports })
+        tracing::info!("Upstream drift: {}", drift.summary());
+
+        for (key, from, to) in &drift.relabelled {
+            tracing::info!("Relabelled {key}: {from:?} -> {to:?}");
+        }
+
+        if drift.looks_like_scheme_change(self.registry.len()) {
+            report_internal(
+                "sat_rev",
+                "AMSAT naming scheme may have changed",
+                &format!(
+                    "{} of {} records were relabelled in a single cycle.",
+                    drift.relabelled.len(),
+                    self.registry.len()
+                ),
+                NewsUrgency::High,
+            );
+        }
+
+        // Unrecognised mode tokens are the other early signal of upstream change.
+        let unknown: Vec<String> = self
+            .registry
+            .active()
+            .iter()
+            .filter(|r| r.mode_class == Some(naming::ModeClass::Unknown))
+            .map(|r| {
+                format!(
+                    "{} (mode {:?})",
+                    r.current_label,
+                    r.mode.as_deref().unwrap_or("?")
+                )
+            })
             .collect();
-        blocks.sort_by(|a, b| b.time.cmp(&a.time));
-        blocks
+
+        if !unknown.is_empty() {
+            tracing::warn!(
+                "{} label(s) carry unrecognised mode tokens: {}",
+                unknown.len(),
+                unknown.join(", ")
+            );
+        }
     }
 
-    // ─── Cache helpers ───────────────────────────────────────────────────
-
-    /// Try loading the satellite list from the local TOML cache.
-    async fn load_satellite_list_cache(&self) -> Option<SatelliteList> {
+    /// Read the curated satellite list, if present.
+    async fn load_curated_list(&self) -> Option<SatelliteList> {
         let content = tokio::fs::read_to_string(SATELLITE_LIST_CACHE_PATH)
             .await
             .ok()?;
@@ -217,72 +351,21 @@ impl SatManager {
 
     // ─── Public query API ────────────────────────────────────────────────
 
-    /// Search for entries matching `query`.
+    /// Search for records matching `query`, ranked best-first.
     ///
-    /// Supports:
-    /// - Multi-target queries separated by `/` (e.g. `"iss/so-50"`) — results are
-    ///   unioned across all sub-queries.
-    /// - Name matching with priority: api_name > base_name > aliases.
-    pub fn search(&self, query: &str) -> Vec<&AmsatEntry> {
-        let parts: Vec<&str> = query.split('/').map(str::trim).filter(|s| !s.is_empty()).collect();
-
-        if parts.len() > 1 {
-            let mut seen = std::collections::HashSet::new();
-            let mut combined = Vec::new();
-            for part in &parts {
-                for entry in self.search_single(part) {
-                    if seen.insert(&*entry.api_name as *const str) {
-                        combined.push(entry);
-                    }
-                }
-            }
-            return combined;
-        }
-
-        self.search_single(query)
+    /// Retired records are excluded, so a satellite that left the upstream list stops
+    /// appearing in results without its history being destroyed.
+    pub fn lookup(&self, query: &str) -> query::Outcome<'_> {
+        query::search(self.registry.active(), query)
     }
 
-    /// Core single-query search (no `/` splitting).
-    fn search_single(&self, query: &str) -> Vec<&AmsatEntry> {
-        let trimmed = query.trim();
-        if trimmed.is_empty() {
-            return Vec::new();
-        }
-
-        let normalised = amsat::normalize_for_search(trimmed);
-
-        // ── Priority 1: exact match on api_name ──────────────────────────
-        for entry in &self.entries {
-            if amsat::normalize_for_search(&entry.api_name) == normalised {
-                return vec![entry];
-            }
-        }
-
-        // ── Priority 2: exact match on satellite_base_name ───────────────
-        let results: Vec<&AmsatEntry> = self
-            .entries
-            .iter()
-            .filter(|e| amsat::normalize_for_search(&e.satellite_base_name) == normalised)
-            .collect();
-        if !results.is_empty() {
-            return results;
-        }
-
-        // ── Priority 3: match on aliases ─────────────────────────────────
-        let results: Vec<&AmsatEntry> = self
-            .entries
-            .iter()
-            .filter(|e| {
-                e.aliases
-                    .iter()
-                    .any(|a| amsat::normalize_for_search(a) == normalised)
-            })
-            .collect();
-        results
+    /// Search and return only the matched records, ranked best-first.
+    pub fn search(&self, query: &str) -> Vec<&SatRecord> {
+        self.lookup(query).entries()
     }
 
-    /// Return references to every entry.
-    pub fn all_entries(&self) -> &[AmsatEntry] {
-        &self.entries
+    /// All records, retired ones last.
+    pub fn all_entries(&self) -> &[SatRecord] {
+        self.registry.records()
     }
 }

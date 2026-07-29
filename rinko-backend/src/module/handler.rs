@@ -7,6 +7,7 @@ use tokio::sync::RwLock;
 
 use crate::config::CONFIG;
 use super::CACHE_PATH;
+use super::sat_rev::query::Outcome;
 use super::sat_rev::SatManager;
 use super::lotw::LotwUpdater;
 use super::qo100::Qo100Updater;
@@ -124,16 +125,30 @@ impl MessageHandler {
         
         // Search for AMSAT entries matching the query
         let mgr = self.satellite_manager.read().await;
-        let search_results = mgr.search(query);
-        
-        if search_results.is_empty() {
-            return Ok(MessageResponse {
-                success: false,
-                message: format!("^ ^)/"),
-                message_id: uuid::Uuid::now_v7().to_string(),
-                content_type: ContentType::Text as i32,
-            });
-        }
+        let outcome = mgr.lookup(query);
+
+        let search_results = match &outcome {
+            Outcome::Hits(_) => outcome.entries(),
+            Outcome::Miss(suggestions) => {
+                // Offer near misses rather than an opaque failure.
+                let message = if suggestions.is_empty() {
+                    format!("No satellite matched \"{}\". ^ ^)/", query)
+                } else {
+                    format!(
+                        "No satellite matched \"{}\". Did you mean: {}?",
+                        query,
+                        suggestions.labels.join(", ")
+                    )
+                };
+
+                return Ok(MessageResponse {
+                    success: false,
+                    message,
+                    message_id: uuid::Uuid::now_v7().to_string(),
+                    content_type: ContentType::Text as i32,
+                });
+            }
+        };
         
         // Try to render as image using renderer
         let cache_dir = CACHE_PATH;

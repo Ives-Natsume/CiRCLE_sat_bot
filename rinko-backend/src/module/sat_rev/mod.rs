@@ -1,5 +1,11 @@
 pub mod types;
-pub mod amsat;
+pub mod naming;
+pub mod identity;
+pub mod overlay;
+pub mod providers;
+pub mod registry;
+pub mod store;
+pub mod query;
 pub mod api_client;
 pub mod manager;
 

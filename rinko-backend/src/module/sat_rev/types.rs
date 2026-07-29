@@ -1,6 +1,35 @@
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use super::amsat::parse_amsat_name;
+use super::identity::SatKey;
+use super::naming::{self, ModeClass};
+use super::overlay::{Overlay, OverlaySource};
+
+/// Former name of [`SatRecord`].
+///
+/// Kept as an alias so the renderer and query layer need not be rewritten alongside
+/// the identity change; new code should say [`SatRecord`].
+pub type AmsatEntry = SatRecord;
+
+/// The curated satellite file (`data/satellite_list.toml`).
+///
+/// This is the **human-owned** half of the data model: operators add nicknames here
+/// and ingest never rewrites it. Machine state lives in the registry instead.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SatelliteList {
+    /// Curated entries.
+    #[serde(default)]
+    pub satellites: Vec<SatelliteEntry>,
+}
+
+/// One curated entry: an upstream label plus the aliases a human attached to it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SatelliteEntry {
+    /// Upstream label, used only to resolve which record the aliases belong to.
+    pub api_name: String,
+    /// Nicknames, callsigns and colloquial names that cannot be derived mechanically.
+    #[serde(default)]
+    pub aliases: Vec<String>,
+}
 
 /// Satellite report from AMSAT API
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -117,56 +146,186 @@ mod tests {
     }
 }
 
-/// AMSAT entry - the primary unit for user queries and status display
+/// One satellite payload: the unit of querying, storage and display.
 ///
-/// Each entry maps 1:1 with an AMSAT API satellite name.
-/// Example entries: "ISS-FM", "ISS-SSTV", "AO-91", "RS-44"
+/// Identity lives in [`key`], which is derived from durable properties and never
+/// changes. The upstream label is demoted to [`current_label`] — an observation that
+/// may be replaced at any time — with past spellings retained in [`known_labels`] so
+/// operators can still search by the name they remember.
+///
+/// [`key`]: Self::key
+/// [`current_label`]: Self::current_label
+/// [`known_labels`]: Self::known_labels
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AmsatEntry {
-    /// AMSAT API name (primary key), e.g. "ISS-FM", "AO-91"
-    pub api_name: String,
+pub struct SatRecord {
+    /// Stable internal identity. Assigned once, never rewritten.
+    pub key: SatKey,
 
-    /// Search aliases (normalized variants), e.g. ["ISS FM", "ISSFM"]
+    /// The label upstream currently uses. Used to build API requests, and shown to
+    /// users. Expect it to change.
+    pub current_label: String,
+
+    /// Every label previously observed for this payload.
+    ///
+    /// Kept so a rename does not make the old name unsearchable.
+    #[serde(default)]
+    pub known_labels: Vec<String>,
+
+    /// Machine-derived search aliases.
+    ///
+    /// Regenerated on every reconciliation — never hand-edit, edits here are lost.
+    /// See [`naming::derive_aliases`].
     #[serde(default)]
     pub aliases: Vec<String>,
 
-    /// Parsed satellite base name, e.g. "ISS" from "ISS-FM", "AO-91" from "AO-91"
+    /// Curated aliases carrying knowledge that cannot be derived from the label:
+    /// project nicknames (`"asrtu"`), operator callsigns, colloquial names.
+    ///
+    /// Loaded from `satellite_list.toml` and **never overwritten by ingest**. Keeping
+    /// these separate from [`aliases`] is what prevents a scrape from destroying
+    /// months of manual curation.
+    ///
+    /// [`aliases`]: Self::aliases
+    #[serde(default)]
+    pub manual_aliases: Vec<String>,
+
+    /// Parsed satellite designator, e.g. `"AO-91"`.
     pub satellite_base_name: String,
 
-    /// Parsed mode from API name, e.g. Some("FM") from "ISS-FM", None from "AO-91"
+    /// Raw mode token from the label, e.g. `Some("FM")`, `Some("U/v")`, `None`.
     #[serde(default)]
     pub mode: Option<String>,
 
-    /// Status report data blocks (hourly buckets)
+    /// Functional classification of [`mode`], used for category searches such as
+    /// "show me the FM birds".
+    ///
+    /// [`mode`]: Self::mode
+    #[serde(default)]
+    pub mode_class: Option<ModeClass>,
+
+    /// Crowd-sourced AMSAT reports, newest hourly bucket first.
     #[serde(default)]
     pub reports: Vec<SatelliteDataBlock>,
 
-    /// Last update time
+    /// Authoritative facts from non-AMSAT sources, at most one per source.
+    ///
+    /// Kept apart from [`reports`] because they differ in kind: a commanded state is
+    /// ground truth, a crowd report is an observation. Merging them would misrepresent
+    /// both.
+    ///
+    /// [`reports`]: Self::reports
+    #[serde(default)]
+    pub overlays: Vec<Overlay>,
+
+    /// When this payload was last present in an upstream scrape.
+    ///
+    /// Drives retirement, so a vanished satellite stops being polled without being
+    /// deleted.
+    pub last_seen_upstream: DateTime<Utc>,
+
+    /// Last time the record was touched by any update.
     pub last_updated: DateTime<Utc>,
 
-    /// Last successful fetch time
+    /// Last successful report fetch.
     pub last_fetch_success: Option<DateTime<Utc>>,
 
-    /// Whether AMSAT update was successful
+    /// Whether the most recent fetch succeeded.
     #[serde(default)]
     pub update_success: bool,
+
+    /// Absent upstream long enough to stop polling. Retained, not deleted, so
+    /// curated aliases and history survive a temporary disappearance.
+    #[serde(default)]
+    pub retired: bool,
 }
 
-impl AmsatEntry {
-    /// Create a new entry from an AMSAT API name
-    pub fn from_api_name(api_name: &str) -> Self {
-        let parsed = parse_amsat_name(api_name);
-
+impl SatRecord {
+    /// Create a record for a newly observed label.
+    pub fn new(
+        key: SatKey,
+        label: &str,
+        parsed: &naming::ParsedLabel,
+        now: DateTime<Utc>,
+    ) -> Self {
         Self {
-            api_name: api_name.to_string(),
-            aliases: Vec::new(),
-            satellite_base_name: parsed.base_name,
-            mode: parsed.mode_hint,
+            key,
+            current_label: label.to_string(),
+            known_labels: vec![label.to_string()],
+            aliases: naming::derive_aliases(parsed),
+            manual_aliases: Vec::new(),
+            satellite_base_name: parsed.base.clone(),
+            mode: parsed.mode.as_ref().map(|m| m.raw.clone()),
+            mode_class: parsed.mode.as_ref().map(|m| m.class),
             reports: Vec::new(),
-            last_updated: Utc::now(),
+            overlays: Vec::new(),
+            last_seen_upstream: now,
+            last_updated: now,
             last_fetch_success: None,
             update_success: false,
+            retired: false,
         }
+    }
+
+    /// Convenience constructor from a label alone, for tests and simple call sites.
+    pub fn from_label(label: &str) -> Self {
+        let parsed = naming::parse_label(label);
+        let key = SatKey::from_parsed(&parsed);
+        Self::new(key, label, &parsed, Utc::now())
+    }
+
+    /// Adopt a new upstream label, remembering the previous one.
+    pub fn adopt_label(&mut self, label: &str) {
+        if self.current_label != label {
+            let previous = std::mem::replace(&mut self.current_label, label.to_string());
+            if !self.known_labels.contains(&previous) {
+                self.known_labels.push(previous);
+            }
+        }
+        if !self.known_labels.iter().any(|l| l == label) {
+            self.known_labels.push(label.to_string());
+        }
+    }
+
+    /// Recompute derived fields from a fresh parse.
+    ///
+    /// Lets improvements to the parser propagate to existing records without a
+    /// migration, while leaving curated data untouched.
+    pub fn refresh_derived(&mut self, parsed: &naming::ParsedLabel) {
+        self.aliases = naming::derive_aliases(parsed);
+        self.satellite_base_name = parsed.base.clone();
+        self.mode = parsed.mode.as_ref().map(|m| m.raw.clone());
+        self.mode_class = parsed.mode.as_ref().map(|m| m.class);
+    }
+
+    /// Every string a query may match against: current and historical labels,
+    /// derived aliases, curated aliases.
+    pub fn all_aliases(&self) -> impl Iterator<Item = &String> {
+        self.aliases
+            .iter()
+            .chain(self.manual_aliases.iter())
+            .chain(self.known_labels.iter())
+    }
+
+    /// The upstream label, under its historical field name.
+    ///
+    /// Retained so existing display and search code keeps reading one accessor while
+    /// the underlying value is now understood to be mutable.
+    pub fn api_name(&self) -> &str {
+        &self.current_label
+    }
+
+    /// Replace this source's overlay, keeping at most one entry per source.
+    ///
+    /// Overlays describe *current* state, so a new reading supersedes the old rather
+    /// than accumulating.
+    pub fn set_overlay(&mut self, overlay: Overlay) {
+        self.overlays.retain(|o| o.source != overlay.source);
+        self.overlays.push(overlay);
+    }
+
+    /// The overlay from a given source, if any.
+    pub fn overlay(&self, source: OverlaySource) -> Option<&Overlay> {
+        self.overlays.iter().find(|o| o.source == source)
     }
 
     /// Get latest status from crowd-sourced AMSAT reports.

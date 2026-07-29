@@ -8,11 +8,14 @@
 ///! - QO-100 cluster update    (every 10 min)
 ///! - LoTW queue update        (every 20 min)
 
+#[cfg(feature = "dx_world")]
 use super::dx_world::dx_world::DxWorldScraper;
 use super::lotw::LotwUpdater;
 use super::qo100::Qo100Updater;
 use super::sat_rev::SatManager;
-use crate::module::{DX_WORLD_CACHE_PATH, IMAGE_CACHE_PATH};
+#[cfg(feature = "dx_world")]
+use crate::module::DX_WORLD_CACHE_PATH;
+use crate::module::IMAGE_CACHE_PATH;
 use chrono::{NaiveDateTime, Utc};
 use std::sync::Arc;
 use std::time::Duration;
@@ -23,9 +26,11 @@ use tokio::task::JoinHandle;
 
 const SAT_UPDATE_INTERVAL: u64 = 15 * 60;
 const IMAGE_CLEANUP_INTERVAL: u64 = 60 * 60;
+#[cfg(feature = "dx_world")]
 const DX_WORLD_CLEANUP_INTERVAL: u64 = 60 * 60;
 const QO100_UPDATE_INTERVAL: u64 = 10 * 60;
 const LOTW_UPDATE_INTERVAL: u64 = 20 * 60;
+#[cfg(feature = "dx_world")]
 const DX_WORLD_SCRAPE_INTERVAL: u64 = 6 * 3600;
 
 /// Maximum age (in minutes) before a cached file is considered expired.
@@ -68,10 +73,13 @@ impl ScheduledTaskManager {
             .push(Self::spawn_satellite_update(self.satellite_manager.clone()));
         self.task_handles
             .push(Self::spawn_image_cache_cleanup());
-        self.task_handles
-            .push(Self::spawn_dx_world_cleanup());
-        self.task_handles
-            .push(Self::spawn_dx_world_scraper());
+        #[cfg(feature = "dx_world")]
+        {
+            self.task_handles
+                .push(Self::spawn_dx_world_cleanup());
+            self.task_handles
+                .push(Self::spawn_dx_world_scraper());
+        }
         self.task_handles
             .push(Self::spawn_qo100_update(self.qo100_updater.clone()));
         self.task_handles
@@ -126,6 +134,7 @@ impl ScheduledTaskManager {
     }
 
     /// DX World cache cleanup — every 60 min
+    #[cfg(feature = "dx_world")]
     fn spawn_dx_world_cleanup() -> JoinHandle<()> {
         tracing::info!(
             "Scheduling DX World cache cleanup (interval: {}s)",
@@ -141,6 +150,7 @@ impl ScheduledTaskManager {
     }
 
     /// DX World scraper — every 6 hours
+    #[cfg(feature = "dx_world")]
     fn spawn_dx_world_scraper() -> JoinHandle<()> {
         tracing::info!(
             "Scheduling DX World scraper (interval: {}s)",
@@ -304,6 +314,7 @@ async fn cleanup_old_images() {
 ///
 /// File naming convention (from dx_world.rs):
 ///   dxw_timeline_YYYYMMDD_HHMMSS.{html,json,png}
+#[cfg(feature = "dx_world")]
 async fn cleanup_dx_world_cache() {
     let Ok(mut entries) = tokio::fs::read_dir(DX_WORLD_CACHE_PATH).await else {
         tracing::warn!("Cannot read DX World cache dir: {}", DX_WORLD_CACHE_PATH);
@@ -364,6 +375,7 @@ fn extract_timestamp_hhmm(filename: &str) -> Option<NaiveDateTime> {
 
 /// Extract a `YYYYMMDD_HHMMSS` timestamp from a filename like
 /// `dxw_timeline_20260216_231353.html`.
+#[cfg(feature = "dx_world")]
 fn extract_timestamp_hhmmss(filename: &str) -> Option<NaiveDateTime> {
     let parts: Vec<&str> = filename.split('_').collect();
     for window in parts.windows(2) {
@@ -414,6 +426,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "dx_world")]
     fn test_extract_timestamp_hhmmss() {
         let ts = extract_timestamp_hhmmss("dxw_timeline_20260216_231353.html").unwrap();
         assert_eq!(ts.to_string(), "2026-02-16 23:13:53");

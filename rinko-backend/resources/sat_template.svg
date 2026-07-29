@@ -1,47 +1,119 @@
 <svg width="820" height="{{SVG_HEIGHT}}" xmlns="http://www.w3.org/2000/svg">
-<rect width="100%" height="100%" fill="#ffffff" />
+  <defs>
+    <!-- Flat white reads as unfinished at this canvas size; a faint vertical
+         wash gives the sheet some depth without drawing attention. -->
+    <linearGradient id="page-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f6f8fa" />
+    </linearGradient>
+  </defs>
+
+  <rect width="100%" height="100%" fill="url(#page-bg)" />
+
   <style>
-    /* 定义通用字体和样式 */
+    /* ── Base text ──────────────────────────────────────────────────── */
     .table-text {
       font-family: "Segoe UI", "Noto Sans", Helvetica, Consolas, sans-serif;
       font-size: 16px;
-      dominant-baseline: middle; /* 垂直居中对齐 */
+      dominant-baseline: middle;
     }
-    .header-text {
-      font-weight: 600;
-      fill: #24292f;
+    .header-text { font-weight: 600; fill: #24292f; }
+    .row-text    { fill: #24292f; }
+    /* Callsigns and grids align better in a monospace face. */
+    .monospace   { font-family: "SF Mono", "Consolas", "Courier New", monospace; }
+
+    /* Secondary information: present, but not competing for attention. */
+    .muted {
+      font-family: "Segoe UI", "Noto Sans", Helvetica, sans-serif;
+      font-size: 13px;
+      fill: #6b7280;
+      dominant-baseline: middle;
     }
-    .row-text {
-      fill: #24292f;
-    }
-    /* 呼号和网格使用等宽字体，更易读 */
-    .monospace {
-      font-family: "SF Mono", "Consolas", "Courier New", monospace;
-    }
-    /* 新增：卫星名称标题样式 */
+
+    /* ── Satellite heading ──────────────────────────────────────────── */
     .satellite-title {
-      font-family: "Consolas";
+      font-family: "Consolas", "SF Mono", monospace;
       font-size: 24px;
       font-weight: 600;
-      fill: #0969da; /* 蓝色以突出显示 */
+      fill: #0969da;
     }
-    .amsat-update-success {
-      font-family: "Consolas";
-      font-size: 16px;
+
+    /* Mode badge: makes the payload class scannable, so a reader no longer has
+       to decode "AO-123_[FM]" to know it is a voice repeater. */
+    .badge-text {
+      font-family: "Segoe UI", "Noto Sans", Helvetica, sans-serif;
+      font-size: 12px;
       font-weight: 600;
-      fill: #28a745; /* 绿色表示成功 */
+      fill: #ffffff;
+      dominant-baseline: middle;
+      text-anchor: middle;
+    }
+
+    /* ── Update status ──────────────────────────────────────────────── */
+    .amsat-update-success {
+      font-family: "Consolas", monospace;
+      font-size: 15px;
+      font-weight: 600;
+      fill: #1a7f37;
       dominant-baseline: middle;
     }
     .amsat-update-failure {
-      font-family: "Consolas";
-      font-size: 16px;
+      font-family: "Consolas", monospace;
+      font-size: 15px;
       font-weight: 600;
-      fill: #d73a49; /* 红色表示失败 */
+      fill: #d1242f;
       dominant-baseline: middle;
     }
+
+    /* ── Overlay strip ──────────────────────────────────────────────── */
+    /* Authoritative, non-AMSAT facts such as a ground-station commanded state.
+       Deliberately styled apart from the report table so it can never be
+       mistaken for a crowd observation. */
+    .overlay-label {
+      font-family: "Segoe UI", "Noto Sans", Helvetica, sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      fill: #573ab5;
+      dominant-baseline: middle;
+    }
+    .overlay-value {
+      font-family: "Consolas", monospace;
+      font-size: 14px;
+      font-weight: 600;
+      dominant-baseline: middle;
+    }
+    .overlay-meta {
+      font-family: "Segoe UI", "Noto Sans", Helvetica, sans-serif;
+      font-size: 12px;
+      fill: #6b7280;
+      dominant-baseline: middle;
+    }
+
+    /* ── Broadcast slot ─────────────────────────────────────────────── */
+    /* Reserved band for operator notices. Emitted only when a message exists,
+       so the layout is untouched otherwise. */
+    .broadcast-text {
+      font-family: "Segoe UI", "Noto Sans", Helvetica, sans-serif;
+      font-size: 14px;
+      fill: #7a4d05;
+      dominant-baseline: middle;
+    }
+    .broadcast-tag {
+      font-family: "Segoe UI", "Noto Sans", Helvetica, sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      fill: #9a6700;
+      dominant-baseline: middle;
+    }
+
+    /* ── Footer ─────────────────────────────────────────────────────── */
+    .footer-text { font-size: 13px; fill: #6b7280; }
   </style>
 
-  <!-- 所有动态生成的内容都将插入到这里 -->
+  <!-- Operator notices; empty unless a broadcast is active. -->
+  {{BROADCAST}}
+
+  <!-- Generated satellite blocks. -->
   <g id="main-container">
     {{CONTENT}}
   </g>

@@ -1,7 +1,7 @@
-pub mod sat;
 pub mod handler;
 pub mod news;
 pub mod scheduled;
+#[cfg(feature = "dx_world")]
 pub mod dx_world;
 pub mod lotw;
 pub mod qo100;

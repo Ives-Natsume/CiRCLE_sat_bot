@@ -36,4 +36,11 @@ resvg = "0.47.0"
 usvg = "0.47.0"
 tiny-skia = "0.12.0"
 fontdb = "0.23.0"
-headless_chrome = { version = "1.0.21", features = ["fetch"] }
+headless_chrome = { version = "1.0.21", features = ["fetch"], optional = true }
+
+[features]
+default = ["dx_world"]
+# `dx_world` pulls in headless_chrome (a heavy, build-fragile dependency).
+# Disable it (`--no-default-features`) to iterate on the amsat pipeline without
+# paying its compile cost: `cargo check --no-default-features`.
+dx_world = ["headless_chrome"]

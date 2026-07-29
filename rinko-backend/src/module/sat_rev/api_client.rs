@@ -1,5 +1,4 @@
 use super::types::AmsatReport;
-use serde::{Deserialize, Serialize};
 use anyhow::{Context, Result};
 use reqwest::Client;
 use std::time::Duration;
@@ -170,26 +169,13 @@ impl SatelliteScraper {
         }
     }
 
-    /// High level function. Scrape satellite list from AMSAT website
-    /// and cache it to a local file for future use.
-    /// If the cache file already exists and is valid, it will
-    /// be merged with the new data to preserve any manual edits.
-    /// Returns a `SatelliteList` containing satellite entries.
-    pub async fn scrape_satellite_list(&self) -> Result<SatelliteList> {
-        let names = self.fetch_satellite_names().await?;
-
-        let mut list = SatelliteList { satellites: Vec::new() };
-        for name in names {
-            list.satellites.push(SatelliteEntry {
-                api_name: name,
-                aliases: Vec::new(),
-            });
-        }
-
-        // Cache the satellite list to a local file for future use
-        self.save_satellite_list_cache(&list).await?;
-
-        Ok(list)
+    /// Fetch the current satellite labels from the AMSAT status page.
+    ///
+    /// Purely a read: reconciling these labels against stored state, and persisting
+    /// the result, belongs to the registry. The previous entry point also wrote the
+    /// cache file, which is how a scrape could silently clobber curated aliases.
+    pub async fn fetch_labels(&self) -> Result<Vec<String>> {
+        self.fetch_satellite_names().await
     }
 
     /// Fetch list of satellite names from AMSAT status page using the shared client.
@@ -242,70 +228,6 @@ impl SatelliteScraper {
         Ok(satellite_names)
     }
 
-    async fn save_satellite_list_cache(&self, list: &SatelliteList) -> Result<()> {
-        // Ensure the data directory exists
-        if let Some(parent) = std::path::Path::new(SATELLITE_LIST_CACHE_PATH).parent() {
-            tokio::fs::create_dir_all(parent)
-                .await
-                .context("Failed to create data directory for satellite list cache")?;
-        }
-
-        let toml_string: String;
-
-        // Load existing cache if it exists to avoid overwriting with empty data
-        if std::path::Path::new(SATELLITE_LIST_CACHE_PATH).exists() {
-            let existing_data = tokio::fs::read_to_string(SATELLITE_LIST_CACHE_PATH)
-                .await
-                .context("Failed to read existing satellite list cache")?;
-
-            if !existing_data.trim().is_empty() {
-                tracing::info!("Existing satellite list cache found, skipping overwrite");
-            }
-
-            match self.parse_toml_cache(&existing_data) {
-                Ok(data) => {
-                    tracing::info!("Existing satellite list cache is valid, skipping overwrite");
-                    let new_list = self.merge_satellite_lists(&data, list);
-                    toml_string = toml::to_string(&new_list)
-                        .context("Failed to serialize merged satellite list to TOML")?;
-                }
-                Err(_) => {
-                    tracing::warn!("Existing satellite list cache is invalid, overwriting");
-                    toml_string = toml::to_string(list)
-                        .context("Failed to serialize satellite list to TOML")?;
-                }
-            }
-        } else {
-            tracing::info!("No existing satellite list cache found, creating new cache");
-            toml_string = toml::to_string(list)
-                .context("Failed to serialize satellite list to TOML")?;
-        }
-
-        tokio::fs::write(SATELLITE_LIST_CACHE_PATH, toml_string)
-            .await
-            .context("Failed to write satellite list cache")?;
-
-        Ok(())
-    }
-
-    fn parse_toml_cache(&self, toml_str: &str) -> Result<SatelliteList> {
-        let list: SatelliteList = toml::from_str(toml_str)
-            .context("Failed to parse satellite list cache TOML")?;
-        Ok(list)
-    }
-
-    fn merge_satellite_lists(&self, existing: &SatelliteList, new: &SatelliteList) -> SatelliteList {
-        let mut merged = existing.clone();
-
-        for new_entry in &new.satellites {
-            if !merged.satellites.iter().any(|e| e.api_name == new_entry.api_name) {
-                tracing::info!("Adding new satellite to cache: {}", new_entry.api_name);
-                merged.satellites.push(new_entry.clone());
-            }
-        }
-
-        merged
-    }
 }
 
 impl Default for SatelliteScraper {
@@ -314,29 +236,15 @@ impl Default for SatelliteScraper {
     }
 }
 
-/// Temporary types for scraper compatibility
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SatelliteList {
-    pub satellites: Vec<SatelliteEntry>,
-}
-
-/// Type for manually edit satellite entries in the scraper cache file
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SatelliteEntry {
-    pub api_name: String,
-    pub aliases: Vec<String>,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// Hits the live AMSAT status page; verifies the scrape still finds labels.
     #[tokio::test]
-    async fn test_scrape_satellite_list() {
+    async fn test_fetch_labels() {
         let scraper = SatelliteScraper::new();
-        let result = scraper.scrape_satellite_list().await;
-        assert!(result.is_ok());
-        let list = result.unwrap();
-        assert!(!list.satellites.is_empty());
+        let labels = scraper.fetch_labels().await.expect("scrape should succeed");
+        assert!(!labels.is_empty(), "expected at least one satellite label");
     }
 }

@@ -2,9 +2,8 @@
 ///!
 ///! Generate images from satellite data with transponder information
 
-// use super::sat::manager::{AmsatSearchResult, SatelliteManager};
-// use super::sat::types::{AmsatReport, ReportStatus, SatelliteDataBlock};
-// use super::sat::amsat_types::AmsatEntry;
+use super::sat_rev::naming::ModeClass;
+use super::sat_rev::overlay::{OverlayPayload, OverlaySource};
 use super::sat_rev::types::{AmsatEntry, ReportStatus, AmsatReport, SatelliteDataBlock};
 use super::lotw::types::{LotwQueueSnapshot, LotwQueueRow};
 use super::qo100::types::{Qo100Snapshot, Qo100Spot};
@@ -59,6 +58,11 @@ fn lerp_color(c1: (u8, u8, u8), c2: (u8, u8, u8), t: f64) -> (u8, u8, u8) {
 /// Satellite renderer
 pub struct SatelliteRenderer {
     output_dir: PathBuf,
+    /// Operator notice shown above the results, when set.
+    ///
+    /// Kept as renderer state rather than a parameter so callers that do not care
+    /// about broadcasts are unaffected.
+    broadcast: Option<String>,
 }
 
 impl SatelliteRenderer {
@@ -78,12 +82,39 @@ impl SatelliteRenderer {
     const COLOR_BLOCK_HEIGHT: f32 = 18.0;
     const COLOR_BLOCK_TEXT_SPACING: f32 = 8.0;
 
+    /// Height of the operator-notice band, when one is shown.
+    const BROADCAST_HEIGHT: f32 = 34.0;
+    /// Height of an overlay strip row.
+    const OVERLAY_HEIGHT: f32 = 30.0;
+    /// Mode badge geometry.
+    const BADGE_HEIGHT: f32 = 20.0;
+    const BADGE_PAD: f32 = 9.0;
+    const BADGE_CHAR_WIDTH: f32 = 7.2;
+
+    /// Overlays older than this are shown as stale rather than current, so a dead
+    /// upstream feed cannot present old state as fact.
+    const OVERLAY_FRESH_HOURS: i64 = 12;
+
 
     /// Create a new renderer
     pub fn new(output_dir: impl AsRef<Path>) -> Self {
         Self {
             output_dir: output_dir.as_ref().to_path_buf(),
+            broadcast: None,
         }
+    }
+
+    /// Attach an operator notice to be drawn above the results.
+    ///
+    /// Blank messages are ignored, so callers need not special-case an empty
+    /// configuration value.
+    pub fn with_broadcast(mut self, message: impl Into<String>) -> Self {
+        let message = message.into();
+        let trimmed = message.trim();
+        if !trimmed.is_empty() {
+            self.broadcast = Some(trimmed.to_string());
+        }
+        self
     }
 
     /// Render AMSAT search results to image (new dual-store API)
@@ -110,7 +141,14 @@ impl SatelliteRenderer {
         Ok(output_path)
     }
 
-    /// Generate filename for AMSAT results
+    /// Generate filename for AMSAT results.
+    ///
+    /// The name doubles as the cache key: a matching file is served without
+    /// re-rendering. It must therefore cover **everything that affects the image**,
+    /// not just the satellite list. Originally it was only time plus names, so an
+    /// overlay change — a repeater being switched on, say — produced the same key and
+    /// the stale image was served back. Overlay and broadcast state are now folded in
+    /// via a short digest.
     fn generate_amsat_filename(&self, results: &Vec<&AmsatEntry>) -> String {
         let now = chrono::Utc::now();
         let minute = (now.minute() / 15) * 15;
@@ -127,7 +165,7 @@ impl SatelliteRenderer {
         let names: Vec<String> = results
             .iter()
             .take(5)
-            .map(|r| Self::normalize_sat_name(&r.api_name))
+            .map(|r| Self::normalize_sat_name(&r.current_label))
             .collect();
 
         let name_part = if names.is_empty() {
@@ -138,7 +176,45 @@ impl SatelliteRenderer {
             names.join("_")
         };
 
-        format!("sat_{}_{}.png", time_str, name_part)
+        let variant = self.variant_digest(results);
+        format!("sat_{}_{}_{}.png", time_str, name_part, variant)
+    }
+
+    /// Short digest of everything beyond the satellite list that changes the image.
+    ///
+    /// Returns `"base"` when there is nothing extra, keeping filenames recognisable
+    /// in the common case.
+    fn variant_digest(&self, results: &Vec<&AmsatEntry>) -> String {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut parts: Vec<String> = Vec::new();
+
+        if let Some(message) = &self.broadcast {
+            parts.push(format!("b:{message}"));
+        }
+
+        for entry in results {
+            for overlay in &entry.overlays {
+                // Include the observation time so a state change forces a re-render,
+                // and the payload so its content does too.
+                parts.push(format!(
+                    "o:{}:{}:{}",
+                    entry.key,
+                    overlay.source.as_str(),
+                    overlay.observed_at.timestamp()
+                ));
+            }
+        }
+
+        if parts.is_empty() {
+            return "base".to_string();
+        }
+
+        parts.sort();
+        let mut hasher = DefaultHasher::new();
+        parts.join("|").hash(&mut hasher);
+        format!("{:08x}", hasher.finish() as u32)
     }
 
     /// Generate SVG for AMSAT results
@@ -149,6 +225,9 @@ impl SatelliteRenderer {
         let mut current_y = Self::TOP_PADDING;
         let mut content = String::new();
         let now_utc = Utc::now();
+
+        // The notice band, when present, offsets everything below it.
+        let broadcast = self.generate_broadcast(&mut current_y);
 
         if results.is_empty() {
             content.push_str(
@@ -169,10 +248,211 @@ impl SatelliteRenderer {
             .await
             .context("Failed to read SVG template")?
             .replace("{{SVG_HEIGHT}}", &total_height.to_string())
+            .replace("{{BROADCAST}}", &broadcast)
             .replace("{{CONTENT}}", &content)
             .replace("{{FOOTER}}", &footer);
 
         Ok(svg)
+    }
+
+    /// Emit the operator-notice band, advancing `current_y` past it.
+    ///
+    /// Returns an empty string when no notice is set, so the placeholder collapses
+    /// and the layout is byte-for-byte unchanged for the common case.
+    fn generate_broadcast(&self, current_y: &mut f32) -> String {
+        let Some(message) = self.broadcast.as_deref() else {
+            return String::new();
+        };
+
+        let band_top = *current_y - Self::TOP_PADDING / 2.0;
+        let text_y = band_top + Self::BROADCAST_HEIGHT / 2.0;
+        *current_y += Self::BROADCAST_HEIGHT;
+
+        format!(
+            concat!(
+                "  <g id=\"broadcast\">\n",
+                r##"    <rect x="0" y="{}" width="100%" height="{}" fill="#fff8c5" />"##,
+                "\n",
+                r##"    <rect x="0" y="{}" width="4" height="{}" fill="#d4a72c" />"##,
+                "\n",
+                r##"    <text x="{}" y="{}" class="broadcast-tag">NOTICE</text>"##,
+                "\n",
+                r##"    <text x="{}" y="{}" class="broadcast-text">{}</text>"##,
+                "\n  </g>\n"
+            ),
+            band_top,
+            Self::BROADCAST_HEIGHT,
+            band_top,
+            Self::BROADCAST_HEIGHT,
+            Self::X_CALLSIGN,
+            text_y,
+            Self::X_CALLSIGN + 62.0,
+            text_y,
+            Self::escape_xml(message),
+        )
+    }
+
+    /// Draw a mode badge, returning the markup and its total width.
+    ///
+    /// Colour follows the functional class so the payload type is recognisable at a
+    /// glance — previously a reader had to decode `AO-123_[FM]` to know what it was.
+    fn generate_mode_badge(entry: &AmsatEntry, x: f32, centre_y: f32) -> (String, f32) {
+        let Some(mode) = entry.mode.as_deref() else {
+            return (String::new(), 0.0);
+        };
+
+        let label = mode.to_uppercase();
+        let width = (label.chars().count() as f32) * Self::BADGE_CHAR_WIDTH + Self::BADGE_PAD * 2.0;
+        let fill = entry
+            .mode_class
+            .map(Self::mode_class_color)
+            .unwrap_or("#6b7280");
+
+        let markup = format!(
+            concat!(
+                r#"<rect x="{}" y="{}" width="{}" height="{}" rx="{}" fill="{}" />"#,
+                r#"<text x="{}" y="{}" class="badge-text">{}</text>"#,
+                "\n"
+            ),
+            x,
+            centre_y - Self::BADGE_HEIGHT / 2.0,
+            width,
+            Self::BADGE_HEIGHT,
+            Self::BADGE_HEIGHT / 2.0,
+            fill,
+            x + width / 2.0,
+            centre_y,
+            Self::escape_xml(&label),
+        );
+
+        (markup, width)
+    }
+
+    /// Badge colour per functional class.
+    ///
+    /// Chosen to stay distinct from the report status palette, which encodes an
+    /// entirely different axis (heard vs not heard).
+    fn mode_class_color(class: ModeClass) -> &'static str {
+        match class {
+            ModeClass::Voice => "#1f6feb",
+            ModeClass::Linear => "#8250df",
+            ModeClass::Imaging => "#bc4c00",
+            ModeClass::Data => "#0969da",
+            ModeClass::Telemetry => "#57606a",
+            ModeClass::Datv => "#a40e26",
+            ModeClass::Novelty => "#bf3989",
+            ModeClass::Crew => "#6639ba",
+            ModeClass::Unknown => "#6b7280",
+        }
+    }
+
+    /// Emit an overlay strip for each non-AMSAT fact held about this payload.
+    ///
+    /// Rendered above the report table and styled distinctly, because a commanded
+    /// state is ground truth while the table below is crowd observation. A stale
+    /// overlay is labelled as such rather than dropped, so a dead upstream feed is
+    /// visible instead of silently presenting old state as current.
+    fn generate_overlays(
+        &self,
+        entry: &AmsatEntry,
+        current_y: &mut f32,
+        now_utc: &DateTime<Utc>,
+    ) -> String {
+        if entry.overlays.is_empty() {
+            return String::new();
+        }
+
+        let mut out = String::new();
+
+        for overlay in &entry.overlays {
+            let centre_y = *current_y + Self::OVERLAY_HEIGHT / 2.0;
+            let fresh = overlay.is_fresh(Self::OVERLAY_FRESH_HOURS);
+
+            let (value, value_color) = match &overlay.payload {
+                OverlayPayload::CommandedState { on, .. } => {
+                    if *on {
+                        ("Repeater ON".to_string(), "#1a7f37")
+                    } else {
+                        ("Repeater OFF".to_string(), "#d1242f")
+                    }
+                }
+                OverlayPayload::ScheduledWindow { note, .. } => (note.clone(), "#573ab5"),
+                OverlayPayload::Announcement { text } => (text.clone(), "#573ab5"),
+            };
+
+            // Grey out anything past the freshness horizon.
+            let value_color = if fresh { value_color } else { "#8c959f" };
+
+            let age = now_utc.signed_duration_since(overlay.observed_at);
+            let age_text = Self::humanise_age(age);
+            let meta = if fresh {
+                format!("{} · {}", overlay.source.attribution(), age_text)
+            } else {
+                format!("{} · {} · STALE", overlay.source.attribution(), age_text)
+            };
+
+            out.push_str(&format!(
+                concat!(
+                    r##"<rect x="{}" y="{}" width="780" height="{}" rx="4" fill="#faf7ff" />"##,
+                    r##"<rect x="{}" y="{}" width="3" height="{}" fill="#8250df" />"##,
+                    r##"<text x="{}" y="{}" class="overlay-label">{}</text>"##,
+                    r##"<text x="{}" y="{}" class="overlay-value" fill="{}">{}</text>"##,
+                    r##"<text x="{}" y="{}" class="overlay-meta" text-anchor="end">{}</text>"##,
+                    "\n"
+                ),
+                Self::X_CALLSIGN - 8.0,
+                *current_y,
+                Self::OVERLAY_HEIGHT,
+                Self::X_CALLSIGN - 8.0,
+                *current_y,
+                Self::OVERLAY_HEIGHT,
+                Self::X_CALLSIGN + 4.0,
+                centre_y,
+                Self::overlay_label(overlay.source),
+                Self::X_GRIDS,
+                centre_y,
+                value_color,
+                Self::escape_xml(&Self::truncate(&value, 44)),
+                790.0,
+                centre_y,
+                Self::escape_xml(&meta),
+            ));
+
+            *current_y += Self::OVERLAY_HEIGHT + 4.0;
+        }
+
+        out
+    }
+
+    /// Short heading for an overlay source.
+    fn overlay_label(source: OverlaySource) -> &'static str {
+        match source {
+            OverlaySource::Asrtu => "Ground station",
+            OverlaySource::Ariss => "ARISS notice",
+        }
+    }
+
+    /// Render a duration as a compact human phrase.
+    fn humanise_age(age: chrono::Duration) -> String {
+        let minutes = age.num_minutes();
+        if minutes < 1 {
+            "just now".to_string()
+        } else if minutes < 60 {
+            format!("{}m ago", minutes)
+        } else if age.num_hours() < 48 {
+            format!("{}h ago", age.num_hours())
+        } else {
+            format!("{}d ago", age.num_days())
+        }
+    }
+
+    /// Clip overlong text so a verbose upstream note cannot overflow the canvas.
+    fn truncate(text: &str, max_chars: usize) -> String {
+        if text.chars().count() <= max_chars {
+            return text.to_string();
+        }
+        let kept: String = text.chars().take(max_chars.saturating_sub(1)).collect();
+        format!("{kept}…")
     }
 
     /// Generate a block for a single AMSAT entry
@@ -184,14 +464,21 @@ impl SatelliteRenderer {
     ) -> Result<String> {
         let mut block = String::new();
 
-        // Title: API name
-        let title = &entry.api_name;
+        // Title: current upstream label, with a mode badge beside it.
+        let title = &entry.current_label;
+        let title_centre = *current_y + Self::BLOCK_TITLE_HEIGHT / 2.0;
         block.push_str(&format!(
             r#"<text x="{}" y="{}" class="satellite-title">{}</text>"#,
             Self::X_CALLSIGN,
-            *current_y + Self::BLOCK_TITLE_HEIGHT / 2.0,
+            title_centre,
             Self::escape_xml(title)
         ));
+
+        // Badge sits after the title; width is estimated from the glyph count since
+        // SVG text metrics are not available before rasterisation.
+        let badge_x = Self::X_CALLSIGN + (title.chars().count() as f32) * 13.5 + 14.0;
+        let (badge, _) = Self::generate_mode_badge(entry, badge_x, title_centre);
+        block.push_str(&badge);
         block.push('\n');
         *current_y += 10.0 + Self::BLOCK_TITLE_HEIGHT / 2.0;
 
@@ -230,6 +517,9 @@ impl SatelliteRenderer {
         block.push('\n');
         *current_y += Self::ROW_HEIGHT;
 
+        // Authoritative external facts, above the crowd-sourced table.
+        block.push_str(&self.generate_overlays(entry, current_y, now_utc));
+
         // Reports
         let total_reports = entry.total_reports();
         if total_reports == 0 {
@@ -244,7 +534,7 @@ impl SatelliteRenderer {
         }
 
         block.push_str(&self.generate_reports_section(
-            &entry.api_name,
+            &entry.current_label,
             &entry.reports,
             current_y,
             now_utc,
@@ -755,4 +1045,135 @@ async fn render_svg_to_png(svg_content: &str, output_path: &Path) -> Result<()> 
         .context("Failed to save PNG")?;
     
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::module::sat_rev::overlay::{Overlay, OverlayPayload, OverlaySource};
+
+    fn record(label: &str) -> AmsatEntry {
+        AmsatEntry::from_label(label)
+    }
+
+    fn commanded(on: bool, minutes_ago: i64) -> Overlay {
+        Overlay {
+            source: OverlaySource::Asrtu,
+            observed_at: Utc::now() - chrono::Duration::minutes(minutes_ago),
+            fetched_at: Utc::now(),
+            payload: OverlayPayload::CommandedState { on, detail: "CTCSS".into() },
+        }
+    }
+
+    /// The filename doubles as the cache key, so anything that changes the image must
+    /// change the name. A live run caught this: an overlay was added, the key stayed
+    /// identical, and the previous image was served instead of being re-rendered.
+    #[test]
+    fn cache_key_covers_overlay_state() {
+        let plain = record("AO-91_[FM]");
+        let mut with_overlay = record("AO-91_[FM]");
+        with_overlay.set_overlay(commanded(true, 5));
+
+        let r = SatelliteRenderer::new("/tmp");
+        let a = r.generate_amsat_filename(&vec![&plain]);
+        let b = r.generate_amsat_filename(&vec![&with_overlay]);
+
+        assert_ne!(a, b, "an overlay must produce a distinct cache key");
+    }
+
+    /// A state change must also invalidate the cache, or a repeater switching off
+    /// would keep showing as on.
+    #[test]
+    fn cache_key_tracks_overlay_changes() {
+        let r = SatelliteRenderer::new("/tmp");
+
+        let mut on = record("AO-91_[FM]");
+        on.set_overlay(commanded(true, 5));
+        let mut off = record("AO-91_[FM]");
+        off.set_overlay(commanded(false, 1));
+
+        assert_ne!(
+            r.generate_amsat_filename(&vec![&on]),
+            r.generate_amsat_filename(&vec![&off]),
+            "a changed overlay must invalidate the cache"
+        );
+    }
+
+    #[test]
+    fn cache_key_covers_broadcast() {
+        let entry = record("AO-91_[FM]");
+        let plain = SatelliteRenderer::new("/tmp");
+        let noticed = SatelliteRenderer::new("/tmp").with_broadcast("maintenance");
+
+        assert_ne!(
+            plain.generate_amsat_filename(&vec![&entry]),
+            noticed.generate_amsat_filename(&vec![&entry]),
+        );
+    }
+
+    /// Without extras the name stays readable, which matters when inspecting the
+    /// cache directory by hand.
+    #[test]
+    fn plain_results_use_the_base_variant() {
+        let entry = record("AO-91_[FM]");
+        let name = SatelliteRenderer::new("/tmp").generate_amsat_filename(&vec![&entry]);
+        assert!(name.ends_with("_base.png"), "got {name}");
+    }
+
+    /// Blank broadcasts must not create a spurious cache variant.
+    #[test]
+    fn blank_broadcast_is_ignored() {
+        let entry = record("AO-91_[FM]");
+        let plain = SatelliteRenderer::new("/tmp");
+        let blank = SatelliteRenderer::new("/tmp").with_broadcast("   ");
+
+        assert_eq!(
+            plain.generate_amsat_filename(&vec![&entry]),
+            blank.generate_amsat_filename(&vec![&entry]),
+        );
+    }
+
+    #[test]
+    fn overlay_freshness_is_reflected_in_output() {
+        let mut fresh = record("AO-91_[FM]");
+        fresh.set_overlay(commanded(true, 10));
+        let mut stale = record("AO-91_[FM]");
+        stale.set_overlay(commanded(true, 60 * 24 * 3));
+
+        let r = SatelliteRenderer::new("/tmp");
+        let mut y = 0.0;
+        let now = Utc::now();
+
+        let fresh_svg = r.generate_overlays(&fresh, &mut y, &now);
+        let mut y2 = 0.0;
+        let stale_svg = r.generate_overlays(&stale, &mut y2, &now);
+
+        assert!(!fresh_svg.contains("STALE"), "fresh overlay must not be marked stale");
+        assert!(stale_svg.contains("STALE"), "stale overlay must be labelled");
+    }
+
+    #[test]
+    fn long_overlay_text_is_truncated() {
+        let long = "x".repeat(200);
+        assert!(SatelliteRenderer::truncate(&long, 44).chars().count() <= 44);
+        assert_eq!(SatelliteRenderer::truncate("short", 44), "short");
+    }
+
+    #[test]
+    fn xml_is_escaped_in_broadcast() {
+        let r = SatelliteRenderer::new("/tmp").with_broadcast("a<b & c>d");
+        let mut y = 20.0;
+        let svg = r.generate_broadcast(&mut y);
+        assert!(svg.contains("&lt;b &amp; c&gt;"), "got {svg}");
+        assert!(!svg.contains("<b "), "raw markup must not leak into the SVG");
+    }
+
+    /// No notice means the placeholder collapses and the layout is untouched.
+    #[test]
+    fn absent_broadcast_emits_nothing() {
+        let r = SatelliteRenderer::new("/tmp");
+        let mut y = 20.0;
+        assert!(r.generate_broadcast(&mut y).is_empty());
+        assert_eq!(y, 20.0, "layout must not shift when there is no notice");
+    }
 }
